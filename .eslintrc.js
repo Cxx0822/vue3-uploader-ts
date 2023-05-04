@@ -1,11 +1,11 @@
 module.exports = {
+  root: true,
   env: {
-    browser: true,
-    es2021: true,
     node: true,
   },
   extends: [
-    'plugin:vue/essential'
+    'plugin:vue/vue3-essential',
+    'eslint:recommended'
   ],
   parserOptions: {
     ecmaVersion: 'latest',
@@ -90,7 +90,7 @@ module.exports = {
     'curly': [2, 'multi-line'],
     // 表达式中点"."要求与属性位于同一行
     'dot-location': [2, 'property'],
-    // 强制文件以换行符结束（文件以一空行结束）
+    // 强制文件以换行符结束（文件以空行结束）
     'eol-last': 2,
     // 强制使用 === 和 !== 但不将此规则应用于 null
     'eqeqeq': ['error', 'always', { 'null': 'ignore' }],
@@ -346,7 +346,7 @@ module.exports = {
     // 代码块前至少有一个空格
     'space-before-blocks': [2, 'always'],
     // 函数名称或 function 关键字与开头括号之间不允许有空格
-    'space-before-function-paren': [2, 'always'],
+    'space-before-function-paren': [2, 'never'],
     // 禁止在括号内使用空格
     'space-in-parens': [2, 'never'],
     // 中缀运算符周围需有空格

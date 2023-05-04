@@ -1,6 +1,5 @@
 import { Chunk, STATUS } from './chunk'
 import { Uploader } from './uploader'
-import { UploadUtils } from './utils'
 
 export class UploadFile {
   private uploader:Uploader
@@ -32,15 +31,18 @@ export class UploadFile {
 
   constructor(uploader:Uploader, file:File) {
     this.uploader = uploader
+    // 文件对象
     this.file = file
-
-    this.id = UploadUtils.uid()
-
+    // 文件类型
     this.fileType = this.file.type
+    // 文件名称
     this.name = file.name
+    // 文件大小
     this.size = file.size
+    // 文件路径
     this.relativePath = file.webkitRelativePath || this.name
 
+    // 初始化文件状态
     this.isPaused = false
     this.isError = false
     this.allError = false
@@ -52,43 +54,17 @@ export class UploadFile {
     this.prevUploadedSize = 0
     this.prevProgress = 0
 
-    this.parseFile()
-    this.bootstrap()
+    this.chunks = []
+    this.generateChunks()
   }
 
-  private parseFile() {
-    this.updateParentFileList()
-  }
-
-  private updateParentFileList() {
-    this.uploader.fileList.push(this)
-  }
-
-  _eachAccess(fileFn:Function, chunkFn:Function) {
-    if (this.isFolder) {
-      this.files.forEach((f, i) => {
-        fileFn()
-      })
-    } else {
-      chunkFn()
-    }
-  }
-
-  private bootstrap() {
-    if (this.isFolder) return
-    const opts = this.uploader.opts
-
-    if (typeof opts.initFileFn === 'function') {
-      opts.initFileFn(this, this)
-    }
-
-    this.abort(true)
-    this.resetError()
-    // Rebuild stack of chunks from file
-    this.prevProgress = 0
-    const round = opts.forceChunkSize ? Math.ceil : Math.floor
-    const chunks = Math.max(round(this.size / opts.chunkSize), 1)
-    // 切片操作
+  /**
+   * 对文件切片 生成文件块
+   */
+  private generateChunks() {
+    console.log(this.size)
+    const chunks = Math.max(Math.ceil(this.size / this.uploader.opts.chunkSize), 1)
+    console.log(chunks)
     for (let offset = 0; offset < chunks; offset++) {
       this.chunks.push(new Chunk(this.uploader, this, offset))
     }
@@ -113,10 +89,6 @@ export class UploadFile {
         this.uploader.uploadNextChunk()
       }
     })
-  }
-
-  private resetError() {
-    this.isError = this.allError = false
   }
 
   /**

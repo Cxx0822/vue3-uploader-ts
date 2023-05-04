@@ -84,6 +84,7 @@ export class Chunk {
    * @returns 字节数
    */
   private computeStartByte():number {
+    console.log('startByte: ', this.offset * this.chunkSize)
     return this.offset * this.chunkSize
   }
 
@@ -92,12 +93,13 @@ export class Chunk {
    * @returns 字节数
    */
   private computeEndByte():number {
-    let endByte = Math.min(this.file.size, (this.offset + 1) * this.chunkSize)
-    if (this.file.size - endByte < this.chunkSize && !this.uploader.opts.forceChunkSize) {
-      // The last chunk will be bigger than the chunk size,
-      // but less than 2 * this.chunkSize
+    let endByte = (this.offset + 1) * this.chunkSize
+
+    if (endByte > this.file.size) {
       endByte = this.file.size
     }
+
+    console.log('endByte: ', endByte)
     return endByte
   }
 
@@ -114,7 +116,7 @@ export class Chunk {
       identifier: this.file.uniqueIdentifier,
       filename: this.file.name,
       relativePath: this.file.relativePath,
-      totalChunks: this.file.chunks.length
+      totalChunks: this.file.chunks.length,
     }
   }
 
