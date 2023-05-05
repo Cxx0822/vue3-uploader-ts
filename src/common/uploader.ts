@@ -8,15 +8,13 @@ import { MyEvent } from './myEvent'
 export class Uploader extends MyEvent {
   // 下载文件列表
   private uploadFileList:UploadFile[]
-  // 下载文件块个数
-  private readonly uploadChunkNum:number
+  // 下载器配置项
   public opts
 
   constructor(options:UploaderOptionsIF) {
     super()
     this.opts = Object.assign(optionsDefaults, options)
     this.eventData = {}
-    this.uploadChunkNum = 0
     this.uploadFileList = []
   }
 
@@ -33,8 +31,10 @@ export class Uploader extends MyEvent {
 
         // 如果该文件未上传 则添加至上传文件列表中
         if (this.IsUniqueIdentifier(uniqueIdentifier)) {
+          // 生成UploadFile对象
           const uploadFile = new UploadFile(file, this.opts)
           uploadFile.uniqueIdentifier = uniqueIdentifier
+          // 绑定监听事件
           uploadFile.on('onFileProgress', this.fileProgressEvent)
           uploadFile.on('onFileSuccess', this.fileSuccessEvent)
           this.uploadFileList.push(uploadFile)
@@ -49,10 +49,17 @@ export class Uploader extends MyEvent {
     })
   }
 
+  /**
+   * 下载中事件
+   */
   private fileProgressEvent = () => {
 
   }
 
+  /**
+   * 下载成功事件
+   * @param uploadFile 下载文件
+   */
   private fileSuccessEvent = (uploadFile:UploadFile) => {
     this.trigger('onFileSuccess', uploadFile)
   }
@@ -87,15 +94,11 @@ export class Uploader extends MyEvent {
     })
   }
 
-  cancel() {
-    for (let i = this.uploadFileList.length - 1; i >= 0; i--) {
-      this.uploadFileList[i].cancel()
-    }
-  }
+  /**
+   * 取消文件上传
+   */
+  cancelFile() {
 
-  removeFile(file:UploadFile) {
-    // File.prototype.removeFile.call(this, file)
-    // this._trigger('fileRemoved', file)
   }
 
   /**
@@ -140,11 +143,10 @@ export class Uploader extends MyEvent {
 
     // 监听Input事件
     inputElement.addEventListener('change', (event:Event) => {
-      // this._trigger(event.type, event)
       const inputElement = event.target as HTMLInputElement
 
       // 如果选择了文件 则将其加入到上传文件列表中
-      if (inputElement.value) {
+      if (inputElement.value && inputElement.files !== null) {
         this.addFiles(inputElement.files)
         inputElement.value = ''
       }
@@ -162,7 +164,6 @@ const optionsDefaults:UploaderOptionsIF = {
   query: {},
   headers: {},
   withCredentials: false,
-  preprocess: () => {},
   method: 'multipart',
   testMethod: 'GET',
   uploadMethod: 'POST',
@@ -170,7 +171,6 @@ const optionsDefaults:UploaderOptionsIF = {
   allowDuplicateUploads: false,
   target: '/',
   testChunks: true,
-  generateUniqueIdentifier: null,
   maxChunkRetries: 0,
   chunkRetryInterval: null,
   permanentErrors: [404, 415, 500, 501],

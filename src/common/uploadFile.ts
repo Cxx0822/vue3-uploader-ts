@@ -21,20 +21,23 @@ export class UploadFile extends MyEvent {
   // 当前上传的文件块个数
   private uploadChunkNumber:number
 
+  // 是否暂停
   private isPaused:boolean
+  // 是否错误
   private isError:boolean
-  private allError:boolean
+  // 是否上传完成
+  private isAllComplated:boolean
+  // 是否中断
   private isAborted:boolean
-
+  // 当前下载速度 单位kb/s
   private currentSpeed:number
+  // 当前进度 单位 %
   private currentProgress:number
+  // 剩余时间 单位 s
   private timeRemaining:number
-
-  private lastProgressCallback:number
-  private prevUploadedSize:number
-  private prevProgress:number
+  // 文件唯一标识
   public uniqueIdentifier:string
-
+  // 上传的开始时间
   private startTime:number
 
   constructor(file:File, uploaderOption:UploaderOptionsIF) {
@@ -51,17 +54,15 @@ export class UploadFile extends MyEvent {
     // 状态信息
     this.isPaused = false
     this.isError = false
-    this.allError = false
+    this.isAllComplated = false
     this.isAborted = false
 
     this.currentSpeed = 0
     this.currentProgress = 0
     this.timeRemaining = 0
 
-    this.lastProgressCallback = Date.now()
-    this.prevUploadedSize = 0
-    this.prevProgress = 0
     this.uploadChunkNumber = 0
+    this.uniqueIdentifier = ''
     this.startTime = Date.now()
   }
 
@@ -69,8 +70,12 @@ export class UploadFile extends MyEvent {
    * 对文件切片 生成文件块
    */
   public generateChunks() {
+    // 文件块个数
     const chunks = Math.max(Math.ceil(this.size / this.uploaderOption.chunkSize), 1)
+
+    // 生成所有的文件块
     for (let offset = 0; offset < chunks; offset++) {
+      // 文件参数信息
       const fileParam:FileParamIF = {
         chunkNumber: offset + 1,
         totalSize: this.size,
@@ -81,7 +86,9 @@ export class UploadFile extends MyEvent {
         totalChunks: chunks,
       }
 
+      // 生成文件块
       const chunk = new Chunk(this.file, this.uploaderOption, fileParam, offset)
+      // 绑定监听事件
       chunk.on('onChunkProgress', this.chunkProgressEvent)
       chunk.on('onChunkSuccess', this.chunkSuccessEvent)
       chunk.on('onChunkUploadNext', this.chunkUploadNextEvent)
@@ -90,6 +97,9 @@ export class UploadFile extends MyEvent {
     }
   }
 
+  /**
+   * 文件块上传中事件
+   */
   private chunkProgressEvent = () => {
     this.currentSpeed = this.measureSpeed()
     this.currentProgress = this.uploadFileProgress()
@@ -99,16 +109,34 @@ export class UploadFile extends MyEvent {
     console.log('当前剩余时间:', this.timeRemaining + ' s')
   }
 
+  /**
+   * 文件块上传成功事件
+   */
   private chunkSuccessEvent = () => {
+    // TODO 取消当前文件块的绑定事件
+    if (this.isCompleted()) {
+      console.log('当前文件已上传完成')
+      console.log('一共用时: ', formatMillisecond(Date.now() - this.startTime))
+      this.isAllComplated = true
+      this.trigger('onFileSuccess', this)
+      return
+    }
+
     this.uploadChunkNumber++
     this.uploadNextChunk()
   }
 
+  /**
+   * 文件块上传错误事件
+   */
   private chunkErrorEvent = () => {
     this.isError = true
     this.trigger('fileError')
   }
 
+  /**
+   * 下载下一个文件块事件
+   */
   private chunkUploadNextEvent = () => {
     this.uploadNextChunk()
   }
@@ -126,13 +154,6 @@ export class UploadFile extends MyEvent {
       return
     }
 
-    if (this.isCompleted()) {
-      console.log('当前文件已上传完成')
-      console.log('一共用时: ', formatMillisecond(Date.now() - this.startTime))
-      this.trigger('onFileSuccess', this)
-      return
-    }
-
     // 不超过最大支持上传的文件块个数
     if (this.uploadChunkNumber > this.uploaderOption.simultaneousUploads) {
       return
@@ -144,14 +165,6 @@ export class UploadFile extends MyEvent {
         return
       }
     })
-  }
-
-  /**
-   * 暂停文件上传
-   * @private
-   */
-  private abort() {
-
   }
 
   /**
@@ -182,61 +195,10 @@ export class UploadFile extends MyEvent {
    * 判断文件是否正在上传
    * @returns 是否有文件块正在上传
    */
-  isUploading():boolean {
+  private isUploading():boolean {
     return this.chunks.some((Chunk) => {
       return Chunk.status === STATUS.PROGRESS
     })
-  }
-
-  /**
-   * 恢复文件上传
-   */
-  resume() {
-    // 如果没有出错 并且已经暂停
-    if (!this.isError && this.isPaused) {
-      this.isPaused = false
-      this.chunks.forEach((chunk) => {
-        if (chunk.status !== STATUS.SUCCESS) {
-          chunk.resume()
-        }
-      })
-    }
-  }
-
-  /**
-   * 暂停文件上传
-   */
-  pause() {
-    // 如果没有出错 并且没有暂停
-    if (!this.isError && !this.isPaused) {
-      this.isPaused = true
-      this.chunks.forEach((chunk) => {
-        if (chunk.status !== STATUS.SUCCESS) {
-          chunk.abort()
-        }
-      })
-    }
-  }
-
-  /**
-   * 取消文件上传
-   */
-  public cancel() {
-
-  }
-
-  /**
-   * 重新上传
-   */
-  retry() {
-    // 如果没有出错 并且已经暂停
-    if (!this.isError) {
-      this.chunks.forEach((chunk) => {
-        if (chunk.status !== STATUS.SUCCESS) {
-          chunk.retry()
-        }
-      })
-    }
   }
 
   /**
@@ -276,5 +238,48 @@ export class UploadFile extends MyEvent {
    */
   private calTimeRemaining() {
     return Math.round(((this.size - this.sizeUploaded()) / this.measureSpeed()) / 1000)
+  }
+
+  /**
+   * 暂停文件上传
+   */
+  private abort() {
+
+  }
+
+  /**
+   * 恢复文件上传
+   */
+  private resume() {
+
+  }
+
+  /**
+   * 暂停文件上传
+   */
+  private pause() {
+    // 如果没有出错 并且没有暂停
+    if (!this.isError && !this.isPaused) {
+      this.isPaused = true
+      this.chunks.forEach((chunk) => {
+        if (chunk.status !== STATUS.SUCCESS) {
+          chunk.abort()
+        }
+      })
+    }
+  }
+
+  /**
+   * 取消文件上传
+   */
+  public cancel() {
+
+  }
+
+  /**
+   * 重新上传
+   */
+  private retry() {
+
   }
 }

@@ -1,6 +1,5 @@
-import { FileParamIF, UploaderOptionsIF } from '../types'
+import { FileParamIF, UploaderDefaultOptionsIF } from '../types'
 import { MyEvent } from './myEvent'
-import { File } from 'buffer'
 
 export const enum STATUS {
   // 等待处理
@@ -32,13 +31,13 @@ export class Chunk extends MyEvent {
   // 文件
   private file:File
   // 下载器配置项
-  private uploaderOption:UploaderOptionsIF
+  private uploaderOption:UploaderDefaultOptionsIF
   // 文件参数
   private fileParam:FileParamIF
   // 第几个文件块
   private readonly offset:number
   // 文件块大小
-  private readonly chunkSize:number | undefined
+  private readonly chunkSize:number
   // 起始字节
   private readonly startByte:number
   // 终止字节
@@ -49,7 +48,6 @@ export class Chunk extends MyEvent {
   public xhr:XMLHttpRequest | null
   // 当前状态
   public status:STATUS
-  private pendingRetry:boolean
   private loaded:number
   private total:number
   private startTime:number
@@ -61,7 +59,8 @@ export class Chunk extends MyEvent {
    * @param fileParam 文件参数
    * @param offset 第几文件块
    */
-  constructor(file: File, uploaderOption: UploaderOptionsIF, fileParam: FileParamIF, offset: number) {
+  constructor(file: File, uploaderOption: UploaderDefaultOptionsIF,
+    fileParam: FileParamIF, offset: number) {
     super()
     this.file = file
     this.uploaderOption = uploaderOption
@@ -73,7 +72,6 @@ export class Chunk extends MyEvent {
     this.endByte = this.computeEndByte()
     this.xhr = null
     this.status = STATUS.PENDING
-    this.pendingRetry = false
     this.loaded = 0
     this.total = 0
     this.startTime = Date.now()
@@ -233,8 +231,8 @@ export class Chunk extends MyEvent {
   private sendData() {
     this.xhr = new XMLHttpRequest()
 
-    const data = this.prepareXhrRequest(<string>(this.uploaderOption.uploadMethod),
-        <string>(this.uploaderOption.method), this.bytes)
+    const data = this.prepareXhrRequest(this.uploaderOption.uploadMethod,
+      this.uploaderOption.method, this.bytes)
 
     // 构造XMLHttpRequest
     this.xhr.upload.addEventListener('progress', this.progressHandler, false)

@@ -1,5 +1,5 @@
 /**
- *
+ * 格式化毫秒 小时:分钟:秒
  @param {number} millisecond 传入的需要转换的并且时间单位为毫秒的值
  @param {number} [secondPrecision=0] 保留的秒数的精度
  @param {boolean} [roundSecond=false] 是否对秒数进行四舍五入
