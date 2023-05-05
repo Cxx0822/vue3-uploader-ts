@@ -13,12 +13,23 @@ const btn = ref()
 
 const options:UploaderOptionsIF = {
   chunkSize: 1 * 1024 * 1024,
+  target: 'http://127.0.0.1:8080/fileUpload/chunk',
+  fileParameterName: 'multipartFile',
 }
+
+let uploader:Uploader
+
 onMounted(() => {
-  const uploader = new Uploader(options)
+  uploader = new Uploader(options)
 
   uploader.assignBrowse(btn.value, false, false)
+
+  uploader.on('onFileSuccess', onFileSuccess)
 })
+
+const onFileSuccess = (...arg) => {
+  console.log(arg[0])
+}
 
 </script>
 

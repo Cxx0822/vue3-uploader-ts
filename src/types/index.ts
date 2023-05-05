@@ -5,8 +5,11 @@ export interface EventDataIF {
 }
 
 export interface UploaderOptionsIF {
+    // 文件块大小
     chunkSize?: number
+    // 同时上传的文件块个数
     simultaneousUploads?: number
+    // 是否是单文件模式
     singleFile?: boolean
     fileParameterName?: string
     progressCallbacksInterval?: number
@@ -30,5 +33,18 @@ export interface UploaderOptionsIF {
     onDropStopPropagation?: boolean
     initFileFn?: null
     checkChunkUploadedByResponse?: null
-    initialPaused?: boolean
+    // 自动下载
+    autoStart?: boolean
+}
+
+export interface FileParamIF {
+    chunkNumber: number,
+    chunkSize?: number,
+    currentChunkSize?: number,
+    totalSize: number,
+    identifier: string,
+    filename: string,
+    fileType: string
+    relativePath: string,
+    totalChunks: number,
 }

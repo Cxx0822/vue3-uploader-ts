@@ -1,14 +1,11 @@
-import { UploadFile } from './file'
-import { STATUS } from './chunk'
+import { UploadFile } from './uploadFile'
 
-import { EventDataIF, UploaderOptionsIF } from '../types'
-
+import { UploaderOptionsIF } from '../types'
+import { MyEvent } from './myEvent'
 /**
  * 下载器类
  */
-export class Uploader {
-  // 事件集合
-  private readonly eventData:EventDataIF
+export class Uploader extends MyEvent {
   // 下载文件列表
   private uploadFileList:UploadFile[]
   // 下载文件块个数
@@ -16,55 +13,12 @@ export class Uploader {
   public opts
 
   constructor(options:UploaderOptionsIF) {
+    super()
     this.opts = Object.assign(optionsDefaults, options)
     this.eventData = {}
     this.uploadChunkNum = 0
     this.uploadFileList = []
   }
-
-  // 注册事件
-  on(name:string, func:Function) {
-    // 判断是否已经注册过
-    if (!Object.keys(this.eventData).includes(name)) {
-      // 没有注册过 则添加事件
-      this.eventData[name] = func
-    }
-  }
-
-  // 删除事件
-  off(name:string, func:Function) {
-    // 判断是否已经注册过
-    if (Object.keys(this.eventData).includes(name)) {
-      // 已经注册过 则删除事件
-      delete this.eventData[name]
-    }
-  }
-
-  // 触发事件
-  trigger(name:string, ...ags:any) {
-    // 判断是否已经注册过
-    if (Object.keys(this.eventData).includes(name)) {
-      // 已经注册过 触发事件
-      this.eventData[name](ags)
-    }
-  }
-
-  // _trigger(name:string, event?:Event) {
-  //   const args = common.toArray(arguments)
-  //   let preventDefault = !this.trigger.apply(this, arguments)
-  //   if (name !== 'catchAll') {
-  //     args.unshift('catchAll')
-  //     preventDefault = !this.trigger.apply(this, args) || preventDefault
-  //   }
-  //   return !preventDefault
-  // }
-
-  // _triggerAsync() {
-  //   const args = arguments
-  //   common.nextTick(() => {
-  //     this._trigger(args)
-  //   }, this)
-  // }
 
   /**
    * 增加上传文件
@@ -79,12 +33,28 @@ export class Uploader {
 
         // 如果该文件未上传 则添加至上传文件列表中
         if (this.IsUniqueIdentifier(uniqueIdentifier)) {
-          const uploadFile = new UploadFile(this, file)
+          const uploadFile = new UploadFile(file, this.opts)
           uploadFile.uniqueIdentifier = uniqueIdentifier
+          uploadFile.on('onFileProgress', this.fileProgressEvent)
+          uploadFile.on('onFileSuccess', this.fileSuccessEvent)
           this.uploadFileList.push(uploadFile)
+
+          // 如果需要自动下载
+          if (this.opts.autoStart) {
+            uploadFile.generateChunks()
+            uploadFile.uploadNextChunk()
+          }
         }
       }
     })
+  }
+
+  private fileProgressEvent = () => {
+
+  }
+
+  private fileSuccessEvent = (uploadFile:UploadFile) => {
+    this.trigger('onFileSuccess', uploadFile)
   }
 
   /**
@@ -126,30 +96,6 @@ export class Uploader {
   removeFile(file:UploadFile) {
     // File.prototype.removeFile.call(this, file)
     // this._trigger('fileRemoved', file)
-  }
-
-  uploadNextChunk() {
-    // 最大下载文件块
-    if (this.uploadChunkNum > this.opts.simultaneousUploads) {
-      return
-    }
-
-    let isAllComplete = true
-    // 下载下一个文件块
-    this.uploadFileList.forEach((uploadFile) => {
-      if (!uploadFile.isComplete) {
-        isAllComplete = false
-        uploadFile.chunks.forEach((chunk) => {
-          if (chunk.status === STATUS.PENDING) {
-            chunk.sendData()
-          }
-        })
-      }
-    })
-
-    if (isAllComplete) {
-      console.log('所有文件上传完成')
-    }
   }
 
   /**
@@ -232,5 +178,5 @@ const optionsDefaults:UploaderOptionsIF = {
   onDropStopPropagation: false,
   initFileFn: null,
   checkChunkUploadedByResponse: null,
-  initialPaused: false,
+  autoStart: true,
 }
