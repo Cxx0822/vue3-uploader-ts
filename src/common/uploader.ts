@@ -1,6 +1,6 @@
 import { UploadFile } from './uploadFile'
 
-import { UploaderOptionsIF } from '../types'
+import { UploaderUserOptionsIF, UploaderDefaultOptionsIF } from '../types'
 import { MyEvent } from './myEvent'
 /**
  * 下载器类
@@ -9,10 +9,11 @@ export class Uploader extends MyEvent {
   // 下载文件列表
   private uploadFileList:UploadFile[]
   // 下载器配置项
-  public opts
+  public opts:UploaderDefaultOptionsIF
 
-  constructor(options:UploaderOptionsIF) {
+  constructor(options:UploaderUserOptionsIF) {
     super()
+    // 合并默认值配置和自定义配置
     this.opts = Object.assign(optionsDefaults, options)
     this.eventData = {}
     this.uploadFileList = []
@@ -154,7 +155,7 @@ export class Uploader extends MyEvent {
   }
 }
 
-const optionsDefaults:UploaderOptionsIF = {
+const optionsDefaults:UploaderDefaultOptionsIF = {
   chunkSize: 1 * 1024 * 1024,
   simultaneousUploads: 3,
   singleFile: false,

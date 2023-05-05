@@ -7,11 +7,11 @@
 <script setup lang="ts">
 import { Uploader } from '../common/uploader'
 import { onMounted, ref } from 'vue'
-import { UploaderOptionsIF } from '../types'
+import { UploaderUserOptionsIF } from '../types'
 
 const btn = ref()
 
-const options:UploaderOptionsIF = {
+const options:UploaderUserOptionsIF = {
   chunkSize: 1 * 1024 * 1024,
   target: 'http://127.0.0.1:8080/fileUpload/chunk',
   fileParameterName: 'multipartFile',
@@ -27,7 +27,7 @@ onMounted(() => {
   uploader.on('onFileSuccess', onFileSuccess)
 })
 
-const onFileSuccess = (...arg) => {
+const onFileSuccess = (...arg:any[]) => {
   console.log(arg[0])
 }
 
