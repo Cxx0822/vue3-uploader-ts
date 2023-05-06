@@ -1,13 +1,60 @@
 <template>
-  <label class="uploader-btn" ref="btn">
-    选择文件
-  </label>
+  <div>
+    <label class="uploader-btn" ref="btn">
+      选择文件
+    </label>
+
+    <table class="upload-file-list">
+      <caption>文件上传列表</caption>
+      <thead>
+        <tr>
+          <th></th>
+          <th>文件名称</th>
+          <th>文件大小</th>
+          <th>当前进度</th>
+          <th>上传速度</th>
+          <th>剩余时间</th>
+          <th>总时间</th>
+          <th>控制</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr v-for="(item, index) in uploaderInfo.uploadFileList" :key="index">
+          <td>
+            <button>选择</button>
+          </td>
+          <td>
+            <img src="../assets/vue.svg">
+            {{ item.name }}
+          </td>
+          <td>{{ item.size / 1000 }} kb</td>
+          <td>{{ item.currentProgress }} %</td>
+          <td>{{ item.currentSpeed }} kb/s</td>
+          <td>{{ item.timeRemaining }} s</td>
+          <td>{{ formatMillisecond(item.totalTime) }} s</td>
+          <td>
+            <button>暂停</button>
+            <button>取消</button>
+          </td>
+        </tr>
+      </tbody>
+
+      <tfoot>
+        <tr>
+          <td colspan="8">总传输速度</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { Uploader } from '../common/uploader'
-import { onMounted, ref } from 'vue'
+import { getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import { UploaderUserOptionsIF } from '../types'
+import { UploadFile } from '../common/uploadFile'
+import { formatMillisecond } from '../utils'
 
 const btn = ref()
 
@@ -17,21 +64,95 @@ const options:UploaderUserOptionsIF = {
   fileParameterName: 'multipartFile',
 }
 
-let uploader:Uploader
+// const uploaderInfo = reactive({
+//   uploadFileList: [] as UploadFile[],
+// })
 
-onMounted(() => {
-  uploader = new Uploader(options)
-
-  uploader.assignBrowse(btn.value, false, false)
-
-  uploader.on('onFileSuccess', onFileSuccess)
+const uploaderInfo = reactive({
+  uploadFileList: [] as UploadFile[],
 })
 
-const onFileSuccess = (...arg:any[]) => {
-  console.log(arg[0])
+const uploader = new Uploader(options)
+
+onMounted(() => {
+  uploader.assignBrowse(btn.value, false, false)
+})
+
+const onFileSuccess = (uploadFile: UploadFile) => {
+  const index = uploaderInfo.uploadFileList.findIndex((item) => {
+    return item.uniqueIdentifier === uploadFile.uniqueIdentifier
+  })
+
+  uploaderInfo.uploadFileList[index].currentProgress = 100
+  // 需要强制刷新？？
+  instance?.proxy?.$forceUpdate()
 }
 
+const onFileAdd = (uploadFile: UploadFile) => {
+  uploaderInfo.uploadFileList.push(uploadFile)
+}
+
+const instance = getCurrentInstance()
+
+const onUploaderProgress = (uploadFile: UploadFile) => {
+  const index = uploaderInfo.uploadFileList.findIndex((item) => {
+    return item.uniqueIdentifier === uploadFile.uniqueIdentifier
+  })
+  uploaderInfo.uploadFileList[index] = uploadFile
+
+  // 需要强制刷新？？
+  instance?.proxy?.$forceUpdate()
+}
+
+uploader.on('onFileSuccess', onFileSuccess)
+uploader.on('onFileAdd', onFileAdd)
+uploader.on('onUploaderProgress', onUploaderProgress)
 </script>
 
 <style scoped>
+.uploader-btn {
+  width: 100px;
+  border-style:solid;
+  border-width:2px;
+  border-color: #000000;
+}
+
+table{
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table caption{
+  border: 2px solid #999;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+th,td{
+  border: 2px solid #999;
+  font-size: 18px;
+  text-align: center;
+}
+
+table thead tr{
+  background-color: #008c8c;
+  color: #fff;
+}
+
+table tbody tr:nth-child(odd){
+  background-color: #eee;
+}
+
+table tbody tr:hover{
+  background-color: #ccc;
+}
+
+table tbody tr td:first-child{
+  color: #f40;
+}
+
+table tfoot tr td{
+  text-align: right;
+  padding-right: 20px;
+}
 </style>

@@ -45,12 +45,17 @@ export class Chunk extends MyEvent {
   // 文件字节
   private bytes:Blob
   // XMLHttpRequest对象
-  public xhr:XMLHttpRequest | null
+  private xhr:XMLHttpRequest | null
   // 当前状态
   public status:STATUS
+  // 已上传字节数
   private loaded:number
+  // 一共需要上传的字节数
   private total:number
+  // 开始上传时间
   private startTime:number
+  // 总上传时间
+  public totalTime:number
 
   /**
    * 构造函数
@@ -75,6 +80,7 @@ export class Chunk extends MyEvent {
     this.loaded = 0
     this.total = 0
     this.startTime = Date.now()
+    this.totalTime = 0
   }
 
   /**
@@ -130,7 +136,17 @@ export class Chunk extends MyEvent {
 
     this.readFile()
     this.sendData()
-    this.trigger('onChunkUploadNext')
+      .then(() => {
+        // 成功回调
+        this.completeHandler()
+      }, (error) => {
+        console.log('上传错误: ' + error)
+        // 错误回调
+        this.failedHandler()
+      })
+
+    // 发送完一个文件块后继续发送
+    // this.trigger('onChunkUploadNext')
   }
 
   /**
@@ -195,7 +211,7 @@ export class Chunk extends MyEvent {
   }
 
   /**
-   * 传输中处理
+   * 传输中事件处理
    * @param event 传输中事件
    */
   private progressHandler = (event:ProgressEvent) => {
@@ -209,65 +225,101 @@ export class Chunk extends MyEvent {
     }
   }
 
-  // 传输完成
-  private completeHandler = () => {
+  /**
+   * 传输完成事件处理
+   */
+  private completeHandler() {
     this.status = STATUS.SUCCESS
-    this.trigger('onChunkSuccess')
+    this.destroy()
+
+    setTimeout(() => {
+      this.totalTime = Date.now() - this.startTime
+      this.trigger('onChunkSuccess', this)
+
+      // 取消监听事件
+      this.off('onChunkProgress')
+      this.off('onChunkSuccess')
+      this.off('onChunkUploadNext')
+      this.off('onChunkError')
+    }, 1000)
   }
 
-  // 传输失败
-  private failedHandler = () => {
+  /**
+   * 传输失败事件处理
+   */
+  private failedHandler() {
     this.status = STATUS.ERROR
     this.trigger('onChunkError')
   }
 
-  // 取消传输
+  /**
+   * 取消传输事件处理
+   */
   private abortHandler = () => {
     this.status = STATUS.ABORT
     this.trigger('onChunkAbort')
   }
 
-  // 向后端发送数据
+  /**
+   * 向后端发送数据
+   */
   private sendData() {
-    this.xhr = new XMLHttpRequest()
+    return new Promise((resolve, reject) => {
+      // 创建XMLHttpRequest对象
+      this.xhr = new XMLHttpRequest()
+      // 初始化请求
+      this.xhr.open(this.uploaderOption.uploadMethod, this.uploaderOption.target, true)
+      // 访问证书
+      this.xhr.withCredentials = this.uploaderOption.withCredentials
 
-    const data = this.prepareXhrRequest(this.uploaderOption.uploadMethod,
-      this.uploaderOption.method, this.bytes)
+      // 请求头数据
+      Object.entries(this.uploaderOption.headers).forEach(([k, v]) => {
+        this.xhr?.setRequestHeader(k, <string>v)
+      })
 
-    // 构造XMLHttpRequest
-    this.xhr.upload.addEventListener('progress', this.progressHandler, false)
-    this.xhr.addEventListener('load', this.completeHandler, false)
-    this.xhr.addEventListener('error', this.failedHandler, false)
-    this.xhr.addEventListener('abort', this.abortHandler, false)
+      const data = this.prepareXhrRequest(this.uploaderOption.uploadMethod, this.bytes)
 
-    this.xhr.send(data)
-    this.status = STATUS.PROGRESS
-    this.startTime = Date.now()
+      this.xhr.onload = () => {
+        // 状态码为200时 上传成功
+        if (this.xhr?.status === 200) {
+          resolve(this.xhr.response)
+        } else {
+          // 其余为上传错误
+          reject(Error(this.xhr?.statusText))
+        }
+      }
+
+      // 上传错误
+      this.xhr.onerror = () => {
+        reject(Error('Network Error'))
+      }
+
+      this.xhr.upload.onprogress = this.progressHandler
+
+      this.xhr.onabort = this.abortHandler
+
+      this.status = STATUS.PROGRESS
+      // 记录上传事件
+      this.startTime = Date.now()
+      this.xhr.send(data)
+    })
   }
 
   /**
    * 预处理XHR请求
    * @param method 请求方法
-   * @param paramsMethod 参数方法
    * @param blob Blob数据
    * @returns 请求数据
    */
-  private prepareXhrRequest(method:string, paramsMethod:string, blob:Blob | null) {
-    if (this.xhr === null) {
-      return
-    }
-
+  private prepareXhrRequest(method: 'POST' | 'GET', blob:Blob | null) {
     // 获取后端参数信息
     const query:Object = this.getParams()
 
-    // 目标url
-    const target = <string>(this.uploaderOption.target)
-    let data
+    const data = new FormData()
 
     switch (method) {
       case 'POST':
         // 使用FormData格式
-        data = new FormData()
         Object.entries(query).forEach(([k, v]) => {
           data.append(k, v)
         })
@@ -280,14 +332,6 @@ export class Chunk extends MyEvent {
         console.log('不合法的请求参数')
         return
     }
-
-    this.xhr.open(method, target, true)
-    this.xhr.withCredentials = <boolean>(this.uploaderOption.withCredentials)
-
-    // Add data from header options
-    Object.entries(this.uploaderOption.headers).forEach(([k, v]) => {
-      this.xhr?.setRequestHeader(k, <string>v)
-    })
 
     return data
   }
@@ -303,5 +347,9 @@ export class Chunk extends MyEvent {
 
   public retry() {
 
+  }
+
+  public destroy() {
+    this.xhr = null
   }
 }

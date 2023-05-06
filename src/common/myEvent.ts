@@ -1,4 +1,6 @@
 import { EventDataIF } from '../types'
+import { UploadFile } from './uploadFile'
+import { Chunk } from './chunk'
 
 export class MyEvent {
   // 事件集合
@@ -9,11 +11,11 @@ export class MyEvent {
   }
 
   // 注册事件
-  on(name:string, func:Function) {
+  on(name:string, event: Function) {
     // 判断是否已经注册过
     if (!Object.keys(this.eventData).includes(name)) {
       // 没有注册过 则添加事件
-      this.eventData[name] = func
+      this.eventData[name] = event
     }
   }
 
@@ -27,11 +29,11 @@ export class MyEvent {
   }
 
   // 触发事件
-  trigger(name:string, ...ags:any[]) {
+  trigger(name:string, data?: UploadFile | Chunk) {
     // 判断是否已经注册过
     if (Object.keys(this.eventData).includes(name)) {
       // 已经注册过 触发事件
-      this.eventData[name](ags)
+      this.eventData[name](data)
     }
   }
 }

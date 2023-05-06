@@ -18,7 +18,7 @@ export interface UploaderUserOptionsIF {
     preprocess?: Function
     method?: string
     testMethod?: string
-    uploadMethod?: string
+    uploadMethod?: 'POST' | 'GET'
     prioritizeFirstAndLastChunk?: boolean
     allowDuplicateUploads?: boolean
     target?: string
@@ -51,7 +51,7 @@ export interface UploaderDefaultOptionsIF {
   preprocess?: Function
   method: string
   testMethod: string
-  uploadMethod: string
+  uploadMethod: 'POST' | 'GET'
   prioritizeFirstAndLastChunk: boolean
   allowDuplicateUploads?: boolean
   target: string

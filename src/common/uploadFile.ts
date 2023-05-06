@@ -1,11 +1,10 @@
 import { Chunk, STATUS } from './chunk'
-import { formatMillisecond } from '../utils'
 import { MyEvent } from './myEvent'
-import { FileParamIF, UploaderOptionsIF } from '../types'
+import { FileParamIF, UploaderDefaultOptionsIF } from '../types'
 
 export class UploadFile extends MyEvent {
   // 下载器配置项
-  private readonly uploaderOption:UploaderOptionsIF
+  private readonly uploaderOption:UploaderDefaultOptionsIF
   // 文件对象
   public file:File
   // 文件类型
@@ -19,28 +18,28 @@ export class UploadFile extends MyEvent {
   // 文件块列表
   public chunks:Chunk[]
   // 当前上传的文件块个数
-  private uploadChunkNumber:number
+  private readonly uploadChunkNumber:number
 
   // 是否暂停
   private isPaused:boolean
   // 是否错误
   private isError:boolean
   // 是否上传完成
-  private isAllComplated:boolean
+  private isAllComplete:boolean
   // 是否中断
   private isAborted:boolean
   // 当前下载速度 单位kb/s
-  private currentSpeed:number
+  public currentSpeed:number
   // 当前进度 单位 %
-  private currentProgress:number
+  public currentProgress:number
   // 剩余时间 单位 s
-  private timeRemaining:number
+  public timeRemaining:number
   // 文件唯一标识
   public uniqueIdentifier:string
-  // 上传的开始时间
-  private startTime:number
+  // 总时间
+  public totalTime:number
 
-  constructor(file:File, uploaderOption:UploaderOptionsIF) {
+  constructor(file:File, uploaderOption:UploaderDefaultOptionsIF) {
     super()
     this.uploaderOption = uploaderOption
     // 文件信息
@@ -54,7 +53,7 @@ export class UploadFile extends MyEvent {
     // 状态信息
     this.isPaused = false
     this.isError = false
-    this.isAllComplated = false
+    this.isAllComplete = false
     this.isAborted = false
 
     this.currentSpeed = 0
@@ -63,7 +62,7 @@ export class UploadFile extends MyEvent {
 
     this.uploadChunkNumber = 0
     this.uniqueIdentifier = ''
-    this.startTime = Date.now()
+    this.totalTime = 0
   }
 
   /**
@@ -86,6 +85,7 @@ export class UploadFile extends MyEvent {
         totalChunks: chunks,
       }
 
+      // TODO 使用生成器生成对象
       // 生成文件块
       const chunk = new Chunk(this.file, this.uploaderOption, fileParam, offset)
       // 绑定监听事件
@@ -98,31 +98,28 @@ export class UploadFile extends MyEvent {
   }
 
   /**
-   * 文件块上传中事件
+   * 文件块上传中事件 计算当前速度 进度 剩余时间等
    */
   private chunkProgressEvent = () => {
     this.currentSpeed = this.measureSpeed()
     this.currentProgress = this.uploadFileProgress()
     this.timeRemaining = this.calTimeRemaining()
-    console.log('当前速度:', this.currentSpeed + ' kb/s')
-    console.log('当前进度:', this.currentProgress + ' %')
-    console.log('当前剩余时间:', this.timeRemaining + ' s')
   }
 
   /**
    * 文件块上传成功事件
    */
-  private chunkSuccessEvent = () => {
-    // TODO 取消当前文件块的绑定事件
+  private chunkSuccessEvent = (chunk:Chunk) => {
+    this.totalTime += chunk.totalTime
     if (this.isCompleted()) {
       console.log('当前文件已上传完成')
-      console.log('一共用时: ', formatMillisecond(Date.now() - this.startTime))
-      this.isAllComplated = true
+      this.isAllComplete = true
       this.trigger('onFileSuccess', this)
       return
     }
 
-    this.uploadChunkNumber++
+    // this.uploadChunkNumber++
+    this.trigger('onFileProgress', this)
     this.uploadNextChunk()
   }
 
@@ -145,10 +142,6 @@ export class UploadFile extends MyEvent {
    * 上传下一个文件块 找到未上传成功的文件块并上传
    */
   public uploadNextChunk() {
-    if (this.uploadChunkNumber === 0) {
-      this.startTime = Date.now()
-    }
-
     if (this.isError) {
       console.log('当前文件上传错误')
       return
@@ -159,12 +152,12 @@ export class UploadFile extends MyEvent {
       return
     }
 
-    this.chunks.forEach((chunk) => {
+    for (const chunk of this.chunks) {
       if (chunk.status === STATUS.PENDING) {
         chunk.preprocess()
         return
       }
-    })
+    }
   }
 
   /**
@@ -186,9 +179,9 @@ export class UploadFile extends MyEvent {
    * @returns 是否全部完成
    */
   private isCompleted():boolean {
-    return this.chunks.every((chunk) => {
-      return chunk.status === STATUS.SUCCESS
-    })
+    return this.chunks.every(chunk =>
+      chunk.status === STATUS.SUCCESS
+    )
   }
 
   /**
@@ -237,7 +230,8 @@ export class UploadFile extends MyEvent {
    * 计算方法：总字节数-已上传字节数 / 当前字节上传速度
    */
   private calTimeRemaining() {
-    return Math.round(((this.size - this.sizeUploaded()) / this.measureSpeed()) / 1000)
+    console.log(Math.round(((this.size - this.sizeUploaded()) / this.currentSpeed) / 1000))
+    return Math.round(((this.size - this.sizeUploaded()) / this.currentSpeed) / 1000)
   }
 
   /**

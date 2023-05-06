@@ -7,7 +7,7 @@ import { MyEvent } from './myEvent'
  */
 export class Uploader extends MyEvent {
   // 下载文件列表
-  private uploadFileList:UploadFile[]
+  public uploadFileList:UploadFile[]
   // 下载器配置项
   public opts:UploaderDefaultOptionsIF
 
@@ -39,6 +39,7 @@ export class Uploader extends MyEvent {
           uploadFile.on('onFileProgress', this.fileProgressEvent)
           uploadFile.on('onFileSuccess', this.fileSuccessEvent)
           this.uploadFileList.push(uploadFile)
+          this.trigger('onFileAdd', uploadFile)
 
           // 如果需要自动下载
           if (this.opts.autoStart) {
@@ -53,8 +54,14 @@ export class Uploader extends MyEvent {
   /**
    * 下载中事件
    */
-  private fileProgressEvent = () => {
+  private fileProgressEvent = (uploadFile: UploadFile) => {
+    const index = this.uploadFileList.findIndex((item) => {
+      return item.uniqueIdentifier === uploadFile.uniqueIdentifier
+    })
 
+    this.uploadFileList[index] = uploadFile
+
+    this.trigger('onUploaderProgress', this.uploadFileList[index])
   }
 
   /**
