@@ -3,12 +3,12 @@ import { UploadFile } from './uploadFile'
 import { UploaderUserOptionsIF, UploaderDefaultOptionsIF } from '../types'
 import { MyEvent } from './myEvent'
 /**
- * 下载器类
+ * 上传器类
  */
 export class Uploader extends MyEvent {
-  // 下载文件列表
+  // 上传文件列表
   public uploadFileList:UploadFile[]
-  // 下载器配置项
+  // 上传器配置项
   public opts:UploaderDefaultOptionsIF
 
   constructor(options:UploaderUserOptionsIF) {
@@ -38,10 +38,11 @@ export class Uploader extends MyEvent {
           // 绑定监听事件
           uploadFile.on('onFileProgress', this.fileProgressEvent)
           uploadFile.on('onFileSuccess', this.fileSuccessEvent)
+          uploadFile.on('fileError', this.fileErrorEvent)
           this.uploadFileList.push(uploadFile)
           this.trigger('onFileAdd', uploadFile)
 
-          // 如果需要自动下载
+          // 如果需要自动上传
           if (this.opts.autoStart) {
             uploadFile.generateChunks()
             uploadFile.uploadNextChunk()
@@ -52,24 +53,36 @@ export class Uploader extends MyEvent {
   }
 
   /**
-   * 下载中事件
+   * 上传中事件
    */
   private fileProgressEvent = (uploadFile: UploadFile) => {
+    // 找到正在处理的文件
     const index = this.uploadFileList.findIndex((item) => {
       return item.uniqueIdentifier === uploadFile.uniqueIdentifier
     })
 
+    // 更新该文件状态
     this.uploadFileList[index] = uploadFile
 
+    // 触发上传器上传中事件
     this.trigger('onUploaderProgress', this.uploadFileList[index])
   }
 
   /**
-   * 下载成功事件
-   * @param uploadFile 下载文件
+   * 上传成功事件
+   * @param uploadFile 上传文件
    */
   private fileSuccessEvent = (uploadFile:UploadFile) => {
+    // 触发上传器上传成功事件
     this.trigger('onFileSuccess', uploadFile)
+  }
+
+  /**
+   * 上传失败事件
+   */
+  private fileErrorEvent = () => {
+    // 触发上传器上传失败事件
+    this.trigger('onFileFailed')
   }
 
   /**
@@ -167,24 +180,10 @@ const optionsDefaults:UploaderDefaultOptionsIF = {
   simultaneousUploads: 3,
   singleFile: false,
   fileParameterName: 'file',
-  progressCallbacksInterval: 500,
-  speedSmoothingFactor: 0.1,
-  query: {},
   headers: {},
-  withCredentials: false,
-  method: 'multipart',
-  testMethod: 'GET',
-  uploadMethod: 'POST',
-  prioritizeFirstAndLastChunk: false,
-  allowDuplicateUploads: false,
-  target: '/',
-  testChunks: true,
+  targetUrl: '/',
+  uploadFolderPath: '/',
   maxChunkRetries: 0,
-  chunkRetryInterval: null,
-  permanentErrors: [404, 415, 500, 501],
-  successStatuses: [200, 201, 202],
-  onDropStopPropagation: false,
-  initFileFn: null,
-  checkChunkUploadedByResponse: null,
+  successCode: [20000],
   autoStart: true,
 }

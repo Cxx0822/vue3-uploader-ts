@@ -1,9 +1,10 @@
 import { Chunk, STATUS } from './chunk'
 import { MyEvent } from './myEvent'
 import { FileParamIF, UploaderDefaultOptionsIF } from '../types'
+import axios from 'axios'
 
 export class UploadFile extends MyEvent {
-  // 下载器配置项
+  // 上传器配置项
   private readonly uploaderOption:UploaderDefaultOptionsIF
   // 文件对象
   public file:File
@@ -28,7 +29,7 @@ export class UploadFile extends MyEvent {
   private isAllComplete:boolean
   // 是否中断
   private isAborted:boolean
-  // 当前下载速度 单位kb/s
+  // 当前上传速度 单位kb/s
   public currentSpeed:number
   // 当前进度 单位 %
   public currentProgress:number
@@ -97,12 +98,30 @@ export class UploadFile extends MyEvent {
     }
   }
 
+  private InitAxiosRequestConfig() {
+    // 添加请求拦截器
+    axios.interceptors.request.use((config) => {
+      // 请求头数据
+      Object.entries(this.uploaderOption.headers).forEach(([k, v]) => {
+        config.headers[k] = v
+      })
+
+      return config
+    }, (error) => {
+      // 对请求错误做些什么
+      return Promise.reject(error)
+    })
+  }
+
   /**
    * 文件块上传中事件 计算当前速度 进度 剩余时间等
    */
   private chunkProgressEvent = () => {
+    // 计算当前速度
     this.currentSpeed = this.measureSpeed()
+    // 计算当前进度
     this.currentProgress = this.uploadFileProgress()
+    // 计算剩余时间
     this.timeRemaining = this.calTimeRemaining()
   }
 
@@ -110,15 +129,24 @@ export class UploadFile extends MyEvent {
    * 文件块上传成功事件
    */
   private chunkSuccessEvent = (chunk:Chunk) => {
+    // 计算总时间
     this.totalTime += chunk.totalTime
+    // 判断是否全部完成
     if (this.isCompleted()) {
       console.log('当前文件已上传完成')
       this.isAllComplete = true
+      // 触发文件上传成功事件
       this.trigger('onFileSuccess', this)
+
+      // 取消监听事件
+      this.off('onFileProgress')
+      this.off('onFileSuccess')
+      this.off('onFileAdd')
       return
     }
 
     // this.uploadChunkNumber++
+    // 没有上传成功 则继续上传文件块
     this.trigger('onFileProgress', this)
     this.uploadNextChunk()
   }
@@ -128,11 +156,12 @@ export class UploadFile extends MyEvent {
    */
   private chunkErrorEvent = () => {
     this.isError = true
+    // 触发文件上传失败事件
     this.trigger('fileError')
   }
 
   /**
-   * 下载下一个文件块事件
+   * 上传下一个文件块事件
    */
   private chunkUploadNextEvent = () => {
     this.uploadNextChunk()
@@ -153,8 +182,9 @@ export class UploadFile extends MyEvent {
     }
 
     for (const chunk of this.chunks) {
+      // 如果有文件块未上传
       if (chunk.status === STATUS.PENDING) {
-        chunk.preprocess()
+        chunk.processUpload()
         return
       }
     }
@@ -167,6 +197,7 @@ export class UploadFile extends MyEvent {
   private sizeUploaded():number {
     let size = 0
 
+    // 遍历所有文件块 计算已上传文件的大小
     this.chunks.forEach((chunk:Chunk) => {
       size += chunk.sizeUploaded()
     })
@@ -179,19 +210,10 @@ export class UploadFile extends MyEvent {
    * @returns 是否全部完成
    */
   private isCompleted():boolean {
+    // 遍历所有文件块 判断是否都上传完成
     return this.chunks.every(chunk =>
       chunk.status === STATUS.SUCCESS
     )
-  }
-
-  /**
-   * 判断文件是否正在上传
-   * @returns 是否有文件块正在上传
-   */
-  private isUploading():boolean {
-    return this.chunks.some((Chunk) => {
-      return Chunk.status === STATUS.PROGRESS
-    })
   }
 
   /**
@@ -201,6 +223,7 @@ export class UploadFile extends MyEvent {
   private uploadFileProgress():number {
     let fileProgress:number = 0
 
+    // 遍历所有文件块 计算当前上传进度
     this.chunks.forEach((chunk) => {
       fileProgress += chunk.chunkProgress()
     })
@@ -230,7 +253,6 @@ export class UploadFile extends MyEvent {
    * 计算方法：总字节数-已上传字节数 / 当前字节上传速度
    */
   private calTimeRemaining() {
-    console.log(Math.round(((this.size - this.sizeUploaded()) / this.currentSpeed) / 1000))
     return Math.round(((this.size - this.sizeUploaded()) / this.currentSpeed) / 1000)
   }
 
@@ -252,15 +274,7 @@ export class UploadFile extends MyEvent {
    * 暂停文件上传
    */
   private pause() {
-    // 如果没有出错 并且没有暂停
-    if (!this.isError && !this.isPaused) {
-      this.isPaused = true
-      this.chunks.forEach((chunk) => {
-        if (chunk.status !== STATUS.SUCCESS) {
-          chunk.abort()
-        }
-      })
-    }
+
   }
 
   /**

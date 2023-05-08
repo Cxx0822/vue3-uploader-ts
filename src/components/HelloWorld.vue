@@ -55,13 +55,15 @@ import { getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import { UploaderUserOptionsIF } from '../types'
 import { UploadFile } from '../common/uploadFile'
 import { formatMillisecond } from '../utils'
+import axios from 'axios'
 
 const btn = ref()
 
 const options:UploaderUserOptionsIF = {
   chunkSize: 1 * 1024 * 1024,
-  target: 'http://127.0.0.1:8080/fileUpload/chunk',
+  targetUrl: 'http://192.168.5.80:8080/fileUpload/chunk',
   fileParameterName: 'multipartFile',
+  uploadFolderPath: '/home/cxx/Downloads/uploadFiles',
 }
 
 // const uploaderInfo = reactive({
@@ -83,9 +85,31 @@ const onFileSuccess = (uploadFile: UploadFile) => {
     return item.uniqueIdentifier === uploadFile.uniqueIdentifier
   })
 
-  uploaderInfo.uploadFileList[index].currentProgress = 100
-  // 需要强制刷新？？
-  instance?.proxy?.$forceUpdate()
+  const uploadFolderPath = options.uploadFolderPath
+  axios({
+    url: 'http://192.168.5.80:8080/fileUpload/mergeFile',
+    method: 'post',
+    data: uploadFile,
+    params: { uploadFolderPath },
+    responseType: 'blob',
+  }).then((response) => {
+    if (response.status === 200) {
+      uploaderInfo.uploadFileList[index].currentProgress = 100
+
+      console.log('合并操作成功')
+    } else {
+      console.log('合并操作未成功，结果码：' + response.status)
+    }
+
+    // 需要强制刷新？？
+    instance?.proxy?.$forceUpdate()
+  }).catch((error:Error) => {
+    console.log('合并后捕获的未知异常：' + error)
+  })
+}
+
+const onFileFailed = () => {
+  console.log('上传失败')
 }
 
 const onFileAdd = (uploadFile: UploadFile) => {
@@ -105,6 +129,7 @@ const onUploaderProgress = (uploadFile: UploadFile) => {
 }
 
 uploader.on('onFileSuccess', onFileSuccess)
+uploader.on('onFileFailed', onFileFailed)
 uploader.on('onFileAdd', onFileAdd)
 uploader.on('onUploaderProgress', onUploaderProgress)
 </script>

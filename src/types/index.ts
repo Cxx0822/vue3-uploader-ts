@@ -4,68 +4,52 @@ export interface EventDataIF {
 
 export interface UploaderUserOptionsIF {
     // 文件块大小
-    chunkSize?: number
+    chunkSize: number
     // 同时上传的文件块个数
     simultaneousUploads?: number
     // 是否是单文件模式
     singleFile?: boolean
-    fileParameterName?: string
-    progressCallbacksInterval?: number
-    speedSmoothingFactor?: number
-    query?: {}
+    // 后端数据MultipartFile字段的名称
+    fileParameterName: string
+    // 自定义请求头
     headers?: {}
-    withCredentials?: boolean
-    preprocess?: Function
-    method?: string
-    testMethod?: string
-    uploadMethod?: 'POST' | 'GET'
-    prioritizeFirstAndLastChunk?: boolean
-    allowDuplicateUploads?: boolean
-    target?: string
-    testChunks?: boolean
+    // 请求目标url
+    targetUrl: string
+    // 文件上传地址
+    uploadFolderPath: string
+    // 文件唯一标识方法
     generateUniqueIdentifier?: (file: File)=>string
+    // 最大重试上传次数
     maxChunkRetries?: number
-    chunkRetryInterval?: null
-    permanentErrors?: number[]
-    successStatuses?: number[]
-    onDropStopPropagation?: boolean
-    initFileFn?: null
-    checkChunkUploadedByResponse?: null
-    // 自动下载
+    // 自定义响应成功状态码
+    successCode?: number[]
+    // 是否自动下载
     autoStart?: boolean
 }
 
 export interface UploaderDefaultOptionsIF {
-  // 文件块大小
-  chunkSize: number
-  // 同时上传的文件块个数
-  simultaneousUploads: number
-  // 是否是单文件模式
-  singleFile: boolean
-  fileParameterName: string
-  progressCallbacksInterval: number
-  speedSmoothingFactor: number
-  query: {}
-  headers: {}
-  withCredentials: boolean
-  preprocess?: Function
-  method: string
-  testMethod: string
-  uploadMethod: 'POST' | 'GET'
-  prioritizeFirstAndLastChunk: boolean
-  allowDuplicateUploads?: boolean
-  target: string
-  testChunks: boolean
-  generateUniqueIdentifier?: (file: File)=>string
-  maxChunkRetries: number
-  chunkRetryInterval: null
-  permanentErrors: number[]
-  successStatuses: number[]
-  onDropStopPropagation: boolean
-  initFileFn: null
-  checkChunkUploadedByResponse: null
-  // 自动下载
-  autoStart: boolean
+    // 文件块大小
+    chunkSize: number
+    // 同时上传的文件块个数
+    simultaneousUploads: number
+    // 是否是单文件模式
+    singleFile: boolean
+    // 后端数据MultipartFile字段的名称
+    fileParameterName: string
+    // 自定义请求头
+    headers: {}
+    // 请求目标url
+    targetUrl: string
+    // 文件上传地址
+    uploadFolderPath: string
+    // 文件唯一标识方法
+    generateUniqueIdentifier?: (file: File)=>string
+    // 最大重试上传次数
+    maxChunkRetries: number
+    // 自定义响应成功状态码
+    successCode: number[]
+    // 是否自动下载
+    autoStart: boolean
 }
 
 export interface FileParamIF {

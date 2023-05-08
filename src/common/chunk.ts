@@ -1,5 +1,6 @@
 import { FileParamIF, UploaderDefaultOptionsIF } from '../types'
 import { MyEvent } from './myEvent'
+import axios from 'axios'
 
 export const enum STATUS {
   // 等待处理
@@ -30,7 +31,7 @@ export const enum STATUS {
 export class Chunk extends MyEvent {
   // 文件
   private file:File
-  // 下载器配置项
+  // 上传器配置项
   private uploaderOption:UploaderDefaultOptionsIF
   // 文件参数
   private fileParam:FileParamIF
@@ -60,7 +61,7 @@ export class Chunk extends MyEvent {
   /**
    * 构造函数
    * @param file 文件
-   * @param uploaderOption 下载器选项
+   * @param uploaderOption 上传器选项
    * @param fileParam 文件参数
    * @param offset 第几文件块
    */
@@ -124,21 +125,23 @@ export class Chunk extends MyEvent {
   }
 
   /**
-   * 预处理
+   * 上传进程
    */
-  public preprocess() {
-    // 拿到uploader opts中的预处理方法和读文件方法
-    const preprocess = this.uploaderOption.preprocess
-
-    if (typeof preprocess === 'function') {
-      preprocess(this)
-    }
-
+  public processUpload() {
+    // 1. 读取文件块 获取需要上传的字节
     this.readFile()
-    this.sendData()
-      .then(() => {
-        // 成功回调
-        this.completeHandler()
+
+    // 2. 发送文件块数据
+    this.sendChunkData()
+      .then((response) => {
+        // 成功回调 对应后端的正确状态码
+        if (this.uploaderOption.successCode.includes(response.data.code)) {
+          this.completeHandler()
+        } else {
+          // 错误回调
+          console.log('上传错误: ' + response.data.code + ':' + response.data.message)
+          this.failedHandler()
+        }
       }, (error) => {
         console.log('上传错误: ' + error)
         // 错误回调
@@ -153,7 +156,9 @@ export class Chunk extends MyEvent {
    * 读取文件块
    */
   private readFile() {
+    // 改变状态
     this.status = STATUS.READING
+    // 切分文件 获取字节数
     this.bytes = this.file.slice(this.startByte, this.endByte, this.fileParam.fileType)
   }
 
@@ -178,11 +183,9 @@ export class Chunk extends MyEvent {
    */
   public sizeUploaded():number {
     let size = this.endByte - this.startByte
-    // can't return only chunk.loaded value, because it is bigger than chunk size
     // 如果没有上传成功 则需要乘上当前进度系数
-    if (this.status !== STATUS.SUCCESS) {
-      size = this.chunkProgress() * size
-    }
+    size = this.chunkProgress() * size
+
     return size
   }
 
@@ -215,40 +218,40 @@ export class Chunk extends MyEvent {
    * @param event 传输中事件
    */
   private progressHandler = (event:ProgressEvent) => {
+    // 改变状态
     this.status = STATUS.PROGRESS
-    // 如果可以计算进度
-    if (event.lengthComputable) {
-      this.loaded = event.loaded
-      this.total = event.total
-      // const percentComplete = event.loaded / event.total
-      this.trigger('onChunkProgress')
-    }
+    // 获取当前已上传字节数和总字节数
+    this.loaded = event.loaded
+    this.total = event.total
+    // 触发文件库上传事件
+    this.trigger('onChunkProgress')
   }
 
   /**
    * 传输完成事件处理
    */
   private completeHandler() {
+    // 改变状态
     this.status = STATUS.SUCCESS
-    this.destroy()
+    // 计算总共上传时间
+    this.totalTime = Date.now() - this.startTime
+    // 触发文件库上传成功事件
+    this.trigger('onChunkSuccess', this)
 
-    setTimeout(() => {
-      this.totalTime = Date.now() - this.startTime
-      this.trigger('onChunkSuccess', this)
-
-      // 取消监听事件
-      this.off('onChunkProgress')
-      this.off('onChunkSuccess')
-      this.off('onChunkUploadNext')
-      this.off('onChunkError')
-    }, 1000)
+    // 取消监听事件
+    this.off('onChunkProgress')
+    this.off('onChunkSuccess')
+    this.off('onChunkUploadNext')
+    this.off('onChunkError')
   }
 
   /**
    * 传输失败事件处理
    */
   private failedHandler() {
+    // 改变状态
     this.status = STATUS.ERROR
+    // 触发文件块上传失败事件
     this.trigger('onChunkError')
   }
 
@@ -263,82 +266,46 @@ export class Chunk extends MyEvent {
   /**
    * 向后端发送数据
    */
-  private sendData() {
+  private sendChunkData() {
+    // 返回Promise
     return new Promise((resolve, reject) => {
-      // 创建XMLHttpRequest对象
-      this.xhr = new XMLHttpRequest()
-      // 初始化请求
-      this.xhr.open(this.uploaderOption.uploadMethod, this.uploaderOption.target, true)
-      // 访问证书
-      this.xhr.withCredentials = this.uploaderOption.withCredentials
-
-      // 请求头数据
-      Object.entries(this.uploaderOption.headers).forEach(([k, v]) => {
-        this.xhr?.setRequestHeader(k, <string>v)
+      // 获取后端参数信息
+      const query:Object = this.getParams()
+      const data = new FormData()
+      // 使用FormData格式
+      Object.entries(query).forEach(([k, v]) => {
+        data.append(k, <string>v)
       })
 
-      const data = this.prepareXhrRequest(this.uploaderOption.uploadMethod, this.bytes)
-
-      this.xhr.onload = () => {
-        // 状态码为200时 上传成功
-        if (this.xhr?.status === 200) {
-          resolve(this.xhr.response)
-        } else {
-          // 其余为上传错误
-          reject(Error(this.xhr?.statusText))
-        }
-      }
-
-      // 上传错误
-      this.xhr.onerror = () => {
-        reject(Error('Network Error'))
-      }
-
-      this.xhr.upload.onprogress = this.progressHandler
-
-      this.xhr.onabort = this.abortHandler
-
-      this.status = STATUS.PROGRESS
-      // 记录上传事件
+      // 文件块参数
+      data.append(this.uploaderOption.fileParameterName, this.bytes, this.fileParam.filename)
+      // 上传服务器的文件路径
+      const uploadFolderPath = this.uploaderOption.uploadFolderPath
+      // 记录上传时间
       this.startTime = Date.now()
-      this.xhr.send(data)
+
+      // 构造axios请求
+      axios({
+        method: 'post',
+        url: this.uploaderOption.targetUrl,
+        data: data,
+        params: { uploadFolderPath },
+        // `onUploadProgress` 允许为上传处理进度事件
+        // 浏览器专属
+        onUploadProgress: (progressEvent:ProgressEvent) => {
+          this.progressHandler(progressEvent)
+        },
+      }).then((result) => {
+        resolve(result)
+      }).catch((error) => {
+        reject(error)
+      })
     })
-  }
-
-  /**
-   * 预处理XHR请求
-   * @param method 请求方法
-   * @param blob Blob数据
-   * @returns 请求数据
-   */
-  private prepareXhrRequest(method: 'POST' | 'GET', blob:Blob | null) {
-    // 获取后端参数信息
-    const query:Object = this.getParams()
-
-    const data = new FormData()
-
-    switch (method) {
-      case 'POST':
-        // 使用FormData格式
-        Object.entries(query).forEach(([k, v]) => {
-          data.append(k, v)
-        })
-
-        if (blob !== null) {
-          data.append(this.uploaderOption.fileParameterName, blob, this.fileParam.filename)
-        }
-        break
-      default:
-        console.log('不合法的请求参数')
-        return
-    }
-
-    return data
   }
 
   // 终止操作
   public abort() {
-    this.xhr?.abort()
+
   }
 
   public resume() {
@@ -347,9 +314,5 @@ export class Chunk extends MyEvent {
 
   public retry() {
 
-  }
-
-  public destroy() {
-    this.xhr = null
   }
 }
