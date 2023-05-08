@@ -32,7 +32,7 @@
           <td>{{ item.currentProgress }} %</td>
           <td>{{ item.currentSpeed }} kb/s</td>
           <td>{{ item.timeRemaining }} s</td>
-          <td>{{ formatMillisecond(item.totalTime) }} s</td>
+          <td>{{  }} s</td>
           <td>
             <button>暂停</button>
             <button>取消</button>

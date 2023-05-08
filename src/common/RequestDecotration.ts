@@ -1,3 +1,4 @@
+import { Chunk } from './chunk'
 
 export class RequestDecorator {
     private readonly maxLimit:number = 3
@@ -6,20 +7,23 @@ export class RequestDecorator {
 
     constructor(maxLimit:number) {
       this.maxLimit = maxLimit
+      this.currentConRequestNumber = 0
     }
 
-    async request(caller:Function) {
+    async request(chunk:Chunk) {
       if (this.currentConRequestNumber >= this.maxLimit) {
         await this.waitRequesting()
       }
 
       try {
         this.currentConRequestNumber++
-        const result = await caller()
+        chunk.startTime = Date.now()
+        const result = await chunk.sendChunkData()
         return Promise.resolve(result)
       } catch (error) {
         return Promise.reject(error)
       } finally {
+        console.log('当前并发数:', this.currentConRequestNumber)
         this.currentConRequestNumber--
         this.nextRequesting()
       }

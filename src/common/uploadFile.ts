@@ -1,7 +1,7 @@
 import { Chunk, STATUS } from './chunk'
 import { MyEvent } from './myEvent'
 import { FileParamIF, UploaderDefaultOptionsIF } from '../types'
-import axios from 'axios'
+import { RequestDecorator } from './RequestDecotration'
 
 export class UploadFile extends MyEvent {
   // 上传器配置项
@@ -37,8 +37,6 @@ export class UploadFile extends MyEvent {
   public timeRemaining:number
   // 文件唯一标识
   public uniqueIdentifier:string
-  // 总时间
-  public totalTime:number
 
   constructor(file:File, uploaderOption:UploaderDefaultOptionsIF) {
     super()
@@ -63,7 +61,6 @@ export class UploadFile extends MyEvent {
 
     this.uploadChunkNumber = 0
     this.uniqueIdentifier = ''
-    this.totalTime = 0
   }
 
   /**
@@ -91,26 +88,37 @@ export class UploadFile extends MyEvent {
       const chunk = new Chunk(this.file, this.uploaderOption, fileParam, offset)
       // 绑定监听事件
       chunk.on('onChunkProgress', this.chunkProgressEvent)
-      chunk.on('onChunkSuccess', this.chunkSuccessEvent)
-      chunk.on('onChunkUploadNext', this.chunkUploadNextEvent)
-      chunk.on('onChunkError', this.chunkErrorEvent)
       this.chunks.push(chunk)
     }
   }
 
-  private InitAxiosRequestConfig() {
-    // 添加请求拦截器
-    axios.interceptors.request.use((config) => {
-      // 请求头数据
-      Object.entries(this.uploaderOption.headers).forEach(([k, v]) => {
-        config.headers[k] = v
-      })
+  public async concurrentUploadFile() {
+    const requestInstance = new RequestDecorator(5)
 
-      return config
-    }, (error) => {
-      // 对请求错误做些什么
-      return Promise.reject(error)
+    const uploadPromises = []
+
+    this.chunks.forEach((chunk) => {
+      const promise = requestInstance.request(chunk)
+      uploadPromises.push(promise)
+
+      // 每个文件块的promise回调
+      promise.then((response) => {
+        // 取消监听事件
+        chunk.off('onChunkProgress')
+        this.chunkSuccessEvent()
+      }, (error) => {
+        console.log('上传错误: ' + error)
+        // 错误回调
+        this.chunkErrorEvent()
+      })
     })
+
+    await Promise.all(uploadPromises)
+      .then((response) => {
+        this.trigger('onFileSuccess', this)
+      }).catch((error) => {
+        console.log(error)
+      })
   }
 
   /**
@@ -128,9 +136,7 @@ export class UploadFile extends MyEvent {
   /**
    * 文件块上传成功事件
    */
-  private chunkSuccessEvent = (chunk:Chunk) => {
-    // 计算总时间
-    this.totalTime += chunk.totalTime
+  private chunkSuccessEvent = () => {
     // 判断是否全部完成
     if (this.isCompleted()) {
       console.log('当前文件已上传完成')
@@ -148,7 +154,6 @@ export class UploadFile extends MyEvent {
     // this.uploadChunkNumber++
     // 没有上传成功 则继续上传文件块
     this.trigger('onFileProgress', this)
-    this.uploadNextChunk()
   }
 
   /**
@@ -158,36 +163,6 @@ export class UploadFile extends MyEvent {
     this.isError = true
     // 触发文件上传失败事件
     this.trigger('fileError')
-  }
-
-  /**
-   * 上传下一个文件块事件
-   */
-  private chunkUploadNextEvent = () => {
-    this.uploadNextChunk()
-  }
-
-  /**
-   * 上传下一个文件块 找到未上传成功的文件块并上传
-   */
-  public uploadNextChunk() {
-    if (this.isError) {
-      console.log('当前文件上传错误')
-      return
-    }
-
-    // 不超过最大支持上传的文件块个数
-    if (this.uploadChunkNumber > this.uploaderOption.simultaneousUploads) {
-      return
-    }
-
-    for (const chunk of this.chunks) {
-      // 如果有文件块未上传
-      if (chunk.status === STATUS.PENDING) {
-        chunk.processUpload()
-        return
-      }
-    }
   }
 
   /**

@@ -5,8 +5,6 @@ import axios from 'axios'
 export const enum STATUS {
   // 等待处理
   PENDING,
-  // 正在读取文件
-  READING,
   // 上传成功
   SUCCESS,
   // 上传出错
@@ -54,9 +52,7 @@ export class Chunk extends MyEvent {
   // 一共需要上传的字节数
   private total:number
   // 开始上传时间
-  private startTime:number
-  // 总上传时间
-  public totalTime:number
+  public startTime:number
 
   /**
    * 构造函数
@@ -81,7 +77,9 @@ export class Chunk extends MyEvent {
     this.loaded = 0
     this.total = 0
     this.startTime = Date.now()
-    this.totalTime = 0
+
+    // 读取文件块 获取需要上传的字节
+    this.readFile()
   }
 
   /**
@@ -125,39 +123,9 @@ export class Chunk extends MyEvent {
   }
 
   /**
-   * 上传进程
-   */
-  public processUpload() {
-    // 1. 读取文件块 获取需要上传的字节
-    this.readFile()
-
-    // 2. 发送文件块数据
-    this.sendChunkData()
-      .then((response) => {
-        // 成功回调 对应后端的正确状态码
-        if (this.uploaderOption.successCode.includes(response.data.code)) {
-          this.completeHandler()
-        } else {
-          // 错误回调
-          console.log('上传错误: ' + response.data.code + ':' + response.data.message)
-          this.failedHandler()
-        }
-      }, (error) => {
-        console.log('上传错误: ' + error)
-        // 错误回调
-        this.failedHandler()
-      })
-
-    // 发送完一个文件块后继续发送
-    // this.trigger('onChunkUploadNext')
-  }
-
-  /**
    * 读取文件块
    */
   private readFile() {
-    // 改变状态
-    this.status = STATUS.READING
     // 切分文件 获取字节数
     this.bytes = this.file.slice(this.startByte, this.endByte, this.fileParam.fileType)
   }
@@ -228,34 +196,6 @@ export class Chunk extends MyEvent {
   }
 
   /**
-   * 传输完成事件处理
-   */
-  private completeHandler() {
-    // 改变状态
-    this.status = STATUS.SUCCESS
-    // 计算总共上传时间
-    this.totalTime = Date.now() - this.startTime
-    // 触发文件库上传成功事件
-    this.trigger('onChunkSuccess', this)
-
-    // 取消监听事件
-    this.off('onChunkProgress')
-    this.off('onChunkSuccess')
-    this.off('onChunkUploadNext')
-    this.off('onChunkError')
-  }
-
-  /**
-   * 传输失败事件处理
-   */
-  private failedHandler() {
-    // 改变状态
-    this.status = STATUS.ERROR
-    // 触发文件块上传失败事件
-    this.trigger('onChunkError')
-  }
-
-  /**
    * 取消传输事件处理
    */
   private abortHandler = () => {
@@ -263,10 +203,25 @@ export class Chunk extends MyEvent {
     this.trigger('onChunkAbort')
   }
 
+  private initAxiosRequestConfig() {
+    // 添加请求拦截器
+    axios.interceptors.request.use((config) => {
+      // 请求头数据
+      Object.entries(this.uploaderOption.headers).forEach(([k, v]) => {
+        config.headers[k] = v
+      })
+
+      return config
+    }, (error) => {
+      // 对请求错误做些什么
+      return Promise.reject(error)
+    })
+  }
+
   /**
    * 向后端发送数据
    */
-  private sendChunkData() {
+  public sendChunkData() {
     // 返回Promise
     return new Promise((resolve, reject) => {
       // 获取后端参数信息
@@ -282,7 +237,7 @@ export class Chunk extends MyEvent {
       // 上传服务器的文件路径
       const uploadFolderPath = this.uploaderOption.uploadFolderPath
       // 记录上传时间
-      this.startTime = Date.now()
+      // this.startTime = Date.now()
 
       // 构造axios请求
       axios({
@@ -296,8 +251,19 @@ export class Chunk extends MyEvent {
           this.progressHandler(progressEvent)
         },
       }).then((result) => {
-        resolve(result)
+        if (this.uploaderOption.successCode.includes(result.data.code)) {
+          // 改变状态
+          this.status = STATUS.SUCCESS
+          resolve(result)
+        } else {
+          // 改变状态
+          this.status = STATUS.ERROR
+          // 发送错误信息
+          reject(new Error(result.data.code + ':' + result.data.message))
+        }
       }).catch((error) => {
+        // 改变状态
+        this.status = STATUS.ERROR
         reject(error)
       })
     })

@@ -45,7 +45,8 @@ export class Uploader extends MyEvent {
           // 如果需要自动上传
           if (this.opts.autoStart) {
             uploadFile.generateChunks()
-            uploadFile.uploadNextChunk()
+            // uploadFile.uploadNextChunk()
+            uploadFile.concurrentUploadFile()
           }
         }
       }
