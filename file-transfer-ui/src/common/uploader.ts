@@ -49,25 +49,49 @@ export class Uploader extends MyEvent {
 
           // 如果需要自动上传
           if (this.opts.autoStart) {
-            // 生成文件块
-            uploadFile.generateChunks()
-            // 并发上传文件块
-            uploadFile.concurrentUploadFile()
-            // 上传成功
-              .then((response) => {
-                this.fileSuccessEvent(uploadFile)
-              })
-            // 上传失败
-              .catch((error) => {
-                uploadFile.message = error.message
-                this.fileErrorEvent(uploadFile)
-              })
+            this.startUploadFile(uploadFile)
           }
         }
       }
     })
   }
 
+  /**
+   * 开始上传文件块
+   * @param uploadFile 上传文件信息
+   */
+  public startUploadFile(uploadFile: UploadFile) {
+    uploadFile.checkSkipUploadFile()
+      .then((response) => {
+        const { chunkResult } = response.data.data
+        console.log(chunkResult)
+        if (chunkResult.skipUpload) {
+          console.log('文件传输成功')
+        } else {
+          // 生成文件块
+          uploadFile.generateChunks()
+          // 并发上传文件块
+          uploadFile.concurrentUploadFile()
+          // 上传成功
+            .then((response) => {
+              this.fileSuccessEvent(uploadFile)
+            })
+          // 上传失败
+            .catch((error) => {
+              uploadFile.message = error.message
+              this.fileErrorEvent(uploadFile)
+            })
+        }
+      }).catch((error) => {
+        uploadFile.message = error.message
+        this.fileErrorEvent(uploadFile)
+      })
+  }
+
+  /**
+   * 获取上传文件信息
+   * @param uploadFile 上传文件对象
+   */
   private getUploaderFileInfo(uploadFile: UploadFile):UploaderFileInfoIF {
     return {
       name: uploadFile.name,

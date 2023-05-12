@@ -253,12 +253,4 @@ export class Chunk extends MyEvent {
     // 取消请求
     this.controller.abort()
   }
-
-  public resume() {
-
-  }
-
-  public retry() {
-
-  }
 }

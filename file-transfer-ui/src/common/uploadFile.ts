@@ -2,6 +2,7 @@ import { Chunk } from './chunk'
 import { MyEvent } from './myEvent'
 import { FileParamIF, STATUS, UploaderDefaultOptionsIF, UploaderFileInfoIF } from '../types'
 import { ConRequest } from './RequestDecotration'
+import axios from 'axios'
 
 export class UploadFile extends MyEvent {
   // 上传器配置项
@@ -71,6 +72,28 @@ export class UploadFile extends MyEvent {
 
     // 创建并发上传对象
     this.requestInstance = new ConRequest(this.uploaderOption.simultaneousUploads)
+  }
+
+  /**
+   * 判断文件是否存在 并跳过秒传
+   */
+  public checkSkipUploadFile() {
+    return new Promise((resolve, reject) => {
+      const identifier = this.uniqueIdentifier
+      const filename = this.name
+      const uploadFolderPath = this.uploaderOption.uploadFolderPath
+      axios({
+        url: this.uploaderOption.uploadUrl,
+        method: 'get',
+        params: { identifier, filename, uploadFolderPath },
+      })
+        .then((response) => {
+          resolve(response)
+        })
+        .catch((error) => {
+          reject(error)
+        })
+    })
   }
 
   /**
@@ -275,12 +298,5 @@ export class UploadFile extends MyEvent {
         return
       }
     })
-  }
-
-  /**
-   * 重新上传
-   */
-  private retry() {
-
   }
 }

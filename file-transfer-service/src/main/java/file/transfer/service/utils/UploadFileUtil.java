@@ -6,14 +6,19 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 
 @Slf4j
 public class UploadFileUtil {
+    private static final char fileSeparator = '_';
+
     /**
      * 获取文件路径
+     *
      * @param uploadFolder 上传文件夹路径
-     * @param chunkInfo 分片文件信息
+     * @param chunkInfo    分片文件信息
      * @return 文件路径
      */
     public static String generatePath(String uploadFolder, ChunkInfo chunkInfo) {
@@ -29,7 +34,26 @@ public class UploadFileUtil {
             }
         }
 
-        return filePath + File.separator + chunkInfo.getFilename() + "-" + chunkInfo.getChunkNumber();
+        return filePath + File.separator + chunkInfo.getFilename() + fileSeparator + chunkInfo.getChunkNumber();
+    }
+
+    public static List<Integer> getUploadedChunkList(String folder, String filename) {
+        List<Integer> uploadedChunkList = new ArrayList<>();
+        // 获取文件夹下所有的文件
+        try (Stream<Path> list = Files.list(Paths.get(folder))) {
+            // 去除需要合并的文件
+            list.filter(path -> !path.getFileName().toString().equals(filename))
+                    // 循环遍历文件 将已经上传的文件序号添加至列表中
+                    .forEach(path -> {
+                        log.info(path.getFileName().toString());
+                        // String[] split = path.getFileName().toString().split(String.valueOf(fileSeparator));
+                        // uploadedChunkList.add(Integer.valueOf(split[split.length - 1]));
+                    });
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        return uploadedChunkList;
     }
 
     /**
@@ -54,8 +78,8 @@ public class UploadFileUtil {
                         .sorted((o1, o2) -> {
                             String p1 = o1.getFileName().toString();
                             String p2 = o2.getFileName().toString();
-                            int i1 = p1.lastIndexOf("-");
-                            int i2 = p2.lastIndexOf("-");
+                            int i1 = p1.lastIndexOf(fileSeparator);
+                            int i2 = p2.lastIndexOf(fileSeparator);
                             return Integer.valueOf(p2.substring(i2)).compareTo(Integer.valueOf(p1.substring(i1)));
                         })
                         // 循环写入到文件中

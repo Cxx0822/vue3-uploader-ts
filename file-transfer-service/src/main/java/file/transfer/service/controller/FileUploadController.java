@@ -10,11 +10,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/fileUpload")
@@ -39,32 +41,31 @@ public class FileUploadController {
             log.info("文件上传块失败: ", exception);
             return R.error().message("上传失败");
         }
-
     }
 
     @ApiOperation("验证当前文件块是否上传")
     @GetMapping("/chunk")
-    public ChunkResult checkChunk(ChunkInfo chunkInfo,
-                                  String uploadFolderPath,
-                                  HttpServletResponse response) {
+    public R checkChunk(@RequestParam String identifier,
+                        @RequestParam String filename,
+                        @RequestParam String uploadFolderPath) {
         ChunkResult chunkResult = new ChunkResult();
+        List<Integer> uploadedChunkList = new ArrayList<>();
 
-        //默认返回其他状态码，前端不进去checkChunkUploadedByResponse函数，正常走标准上传
-        response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
-
-        String file = uploadFolderPath + "/" + chunkInfo.getIdentifier() + "/" + chunkInfo.getFilename();
+        String file = uploadFolderPath + File.separator + identifier + File.separator + filename;
 
         //先判断整个文件是否已经上传过了，如果是，则告诉前端跳过上传，实现秒传
         if (UploadFileUtil.fileExists(file)) {
             chunkResult.setSkipUpload(true);
-            chunkResult.setLocation(file);
-            response.setStatus(HttpServletResponse.SC_OK);
+            chunkResult.setUploadedChunkList(uploadedChunkList);
             log.info("完整文件已存在，直接跳过上传，实现秒传");
-            chunkResult.setMessage("完整文件已存在，直接跳过上传，实现秒传");
-            return chunkResult;
+        } else {
+            chunkResult.setSkipUpload(false);
+            // TODO 这里的文件路径不对 要加上唯一标识
+            // 获取已经上传的文件块
+            chunkResult.setUploadedChunkList(UploadFileUtil.getUploadedChunkList(uploadFolderPath, filename));
         }
 
-        return chunkResult;
+        return R.ok().data("chunkResult", chunkResult);
     }
 
     @PostMapping("/mergeFile")
@@ -73,8 +74,8 @@ public class FileUploadController {
         log.info("开始合并文件: " + uploaderFileInfo.getName());
         //进行文件的合并操作
         String filename = uploaderFileInfo.getName();
-        String file = uploadFolderPath + "/" + uploaderFileInfo.getUniqueIdentifier() + "/" + filename;
-        String folder = uploadFolderPath + "/" + uploaderFileInfo.getUniqueIdentifier();
+        String file = uploadFolderPath + File.separator + uploaderFileInfo.getUniqueIdentifier() + File.separator + filename;
+        String folder = uploadFolderPath + File.separator + uploaderFileInfo.getUniqueIdentifier();
 
         if (UploadFileUtil.merge(file, folder, filename)) {
             log.info("文件{}合并完成", uploaderFileInfo.getName());
