@@ -1,0 +1,13 @@
+spring:
+  profiles:
+    active: dev
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+
+  servlet:
+    multipart:
+      # 设置单个文件大小
+      max-file-size: 10MB
+      # 设置单次请求文件的总大小
+      max-request-size: 10MB

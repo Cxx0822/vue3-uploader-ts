@@ -32,7 +32,7 @@ export class ConRequest {
         // 文件块业务 需要记录文件上传的开始时间
         chunk.startTime = Date.now()
         // 上传文件块数据
-        const result = await chunk.sendChunkData()
+        const result = await chunk.uploadChunkData()
 
         // console.log('当前并发数:', this.currentConRequestNumber)
         // 当前并发数量递减

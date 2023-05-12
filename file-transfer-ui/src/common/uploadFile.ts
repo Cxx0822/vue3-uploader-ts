@@ -1,6 +1,6 @@
 import { Chunk, STATUS } from './chunk'
 import { MyEvent } from './myEvent'
-import { FileParamIF, UploaderDefaultOptionsIF } from '../types'
+import { FileParamIF, UploaderDefaultOptionsIF, UploaderFileInfoIF } from '../types'
 import { ConRequest } from './RequestDecotration'
 
 export class UploadFile extends MyEvent {
@@ -106,6 +106,7 @@ export class UploadFile extends MyEvent {
 
       // 每个文件块的promise回调
       promise
+      // 上传成功的处理 错误的处理放在Promise.all中
         .then((response) => {
           // 取消监听事件
           chunk.off('onChunkProgress')
@@ -134,8 +135,18 @@ export class UploadFile extends MyEvent {
    * 文件块上传成功事件
    */
   private chunkSuccessEvent = () => {
-    // 触发文件上传中事件
-    this.trigger('onFileProgress', this)
+    const uploaderFileInfoIF:UploaderFileInfoIF = {
+      name: this.name,
+      size: this.size,
+      uniqueIdentifier: this.uniqueIdentifier,
+      currentProgress: this.currentProgress,
+      currentSpeed: this.currentSpeed,
+      timeRemaining: this.timeRemaining,
+    }
+
+    // 触发文件上传中事件 并将uploadFileInfo信息返回
+    // 注：不能将整个UploadFile对象返回 否则会导致响应式很慢甚至丢失！
+    this.trigger('onFileProgress', uploaderFileInfoIF)
 
     // 判断是否全部完成
     if (this.isCompleted()) {

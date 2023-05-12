@@ -205,8 +205,10 @@ export class Uploader extends MyEvent {
 }
 
 const optionsDefaults:UploaderDefaultOptionsIF = {
-  chunkSize: 1 * 1024 * 1024,
-  simultaneousUploads: 3,
+  chunkSize: 5 * 1024 * 1024,
+  // BUG TODO 如果是并发上传 会导致计算的速度有问题 原因是this.startTime的位置有问题
+  // 但总时长是对的
+  simultaneousUploads: 1,
   singleFile: false,
   fileParameterName: 'file',
   headers: {},

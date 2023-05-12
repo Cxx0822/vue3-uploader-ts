@@ -53,6 +53,8 @@ export class Chunk extends MyEvent {
   private total:number
   // 开始上传时间
   public startTime:number
+  // 结束上传时间
+  public endTime:number
 
   /**
    * 构造函数
@@ -211,24 +213,24 @@ export class Chunk extends MyEvent {
   }
 
   /**
-   * 向后端发送数据
+   * 上传文件块数据
    */
-  public sendChunkData() {
+  public uploadChunkData() {
     // 返回Promise
     return new Promise((resolve, reject) => {
       // 获取后端参数信息
       const query:Object = this.getParams()
+      // 后端发送数据 使用FormData格式
       const data = new FormData()
-      // 使用FormData格式
+      // 添加参数信息
       Object.entries(query).forEach(([k, v]) => {
         data.append(k, <string>v)
       })
 
-      // 文件块参数
+      // 添加文件块参数
       data.append(this.uploaderOption.fileParameterName, this.bytes, this.fileParam.filename)
       // 上传服务器的文件路径
       const uploadFolderPath = this.uploaderOption.uploadFolderPath
-
       // 构造axios请求
       axios({
         method: 'post',

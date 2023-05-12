@@ -1,3 +1,5 @@
+import { Chunk } from '../common/chunk'
+
 export interface EventDataIF {
     [key: string]: Function
 }
@@ -54,6 +56,21 @@ export interface UploaderDefaultOptionsIF {
     successCode: number[]
     // 是否自动下载
     autoStart: boolean
+}
+
+export interface UploaderFileInfoIF {
+    // 文件名称
+    name:string
+    // 文件大小
+    size:number
+    // 当前上传速度 单位kb/s
+    currentSpeed:number
+    // 当前进度 单位 %
+    currentProgress:number
+    // 剩余时间 单位 s
+    timeRemaining:number
+    // 文件唯一标识
+    uniqueIdentifier:string
 }
 
 export interface FileParamIF {

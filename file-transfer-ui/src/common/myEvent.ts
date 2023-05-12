@@ -1,4 +1,4 @@
-import { EventDataIF } from '../types'
+import { EventDataIF, UploaderFileInfoIF } from '../types'
 import { UploadFile } from './uploadFile'
 import { Chunk } from './chunk'
 
@@ -29,7 +29,7 @@ export class MyEvent {
   }
 
   // 触发事件
-  trigger(name:string, data?: UploadFile | Chunk | string) {
+  trigger(name:string, data?: UploadFile | Chunk | UploaderFileInfoIF | string) {
     // 判断是否已经注册过
     if (Object.keys(this.eventData).includes(name)) {
       // 已经注册过 触发事件
