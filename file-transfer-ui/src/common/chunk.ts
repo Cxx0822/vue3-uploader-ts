@@ -1,25 +1,9 @@
-import { FileParamIF, UploaderDefaultOptionsIF } from '../types'
+import { FileParamIF, STATUS, UploaderDefaultOptionsIF } from '../types'
 import { MyEvent } from './myEvent'
 import axios from 'axios'
 
-export const enum STATUS {
-  // 等待处理
-  PENDING,
-  // 上传成功
-  SUCCESS,
-  // 上传出错
-  ERROR,
-  // 上传中
-  PROGRESS,
-  // 重新上传
-  RETRY,
-  // 暂停上传
-  ABORT
-}
-
 /**
  * 上传块类 利用XMLHttpRequest发送网络请求
- * 利用状态机实现控制
  * 1. 根据文件计算需要上传的文件块
  * 2. 预处理文件
  * 3. 预处理XHR请求
@@ -53,8 +37,7 @@ export class Chunk extends MyEvent {
   private total:number
   // 开始上传时间
   public startTime:number
-  // 结束上传时间
-  public endTime:number
+  private controller
 
   /**
    * 构造函数
@@ -79,6 +62,8 @@ export class Chunk extends MyEvent {
     this.loaded = 0
     this.total = 0
     this.startTime = Date.now()
+
+    this.controller = new AbortController()
 
     // 读取文件块 获取需要上传的字节
     this.readFile()
@@ -231,12 +216,13 @@ export class Chunk extends MyEvent {
       data.append(this.uploaderOption.fileParameterName, this.bytes, this.fileParam.filename)
       // 上传服务器的文件路径
       const uploadFolderPath = this.uploaderOption.uploadFolderPath
-      // 构造axios请求
+      // 构建Axios请求
       axios({
         method: 'post',
         url: this.uploaderOption.uploadUrl,
         data: data,
         params: { uploadFolderPath },
+        signal: this.controller.signal,
         // `onUploadProgress` 允许为上传处理进度事件
         // 浏览器专属
         onUploadProgress: (progressEvent:ProgressEvent) => {
@@ -262,8 +248,10 @@ export class Chunk extends MyEvent {
   }
 
   // 终止操作
-  public abort() {
-
+  public cancelUploadChunk() {
+    console.log('cancelUploadChunk')
+    // 取消请求
+    this.controller.abort()
   }
 
   public resume() {

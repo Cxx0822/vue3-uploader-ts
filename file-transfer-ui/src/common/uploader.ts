@@ -1,6 +1,6 @@
 import { UploadFile } from './uploadFile'
 
-import { UploaderUserOptionsIF, UploaderDefaultOptionsIF } from '../types'
+import { STATUS, UploaderDefaultOptionsIF, UploaderFileInfoIF, UploaderUserOptionsIF } from '../types'
 import { MyEvent } from './myEvent'
 import axios from 'axios'
 
@@ -36,12 +36,16 @@ export class Uploader extends MyEvent {
         if (this.IsUniqueIdentifier(uniqueIdentifier)) {
           // 生成UploadFile对象
           const uploadFile = new UploadFile(file, this.opts)
+          // 设置UploadFile的唯一标识
           uploadFile.uniqueIdentifier = uniqueIdentifier
+          // 设置UploadFile初始暂停状态
+          uploadFile.isPaused = !this.opts.autoStart
+
           // 绑定监听事件
           uploadFile.on('onFileProgress', this.fileProgressEvent)
           this.uploadFileList.push(uploadFile)
           // 触发文件增加事件
-          this.trigger('onFileAdd', uploadFile)
+          this.trigger('onFileAdd', this.getUploaderFileInfo(uploadFile))
 
           // 如果需要自动上传
           if (this.opts.autoStart) {
@@ -49,16 +53,33 @@ export class Uploader extends MyEvent {
             uploadFile.generateChunks()
             // 并发上传文件块
             uploadFile.concurrentUploadFile()
+            // 上传成功
               .then((response) => {
                 this.fileSuccessEvent(uploadFile)
               })
+            // 上传失败
               .catch((error) => {
-                this.fileErrorEvent(error.message)
+                uploadFile.message = error.message
+                this.fileErrorEvent(uploadFile)
               })
           }
         }
       }
     })
+  }
+
+  private getUploaderFileInfo(uploadFile: UploadFile):UploaderFileInfoIF {
+    return {
+      name: uploadFile.name,
+      size: uploadFile.size,
+      uniqueIdentifier: uploadFile.uniqueIdentifier,
+      state: uploadFile.state,
+      currentProgress: uploadFile.currentProgress,
+      currentSpeed: uploadFile.currentSpeed,
+      timeRemaining: uploadFile.timeRemaining,
+      isPause: uploadFile.isPaused,
+      message: uploadFile.message,
+    }
   }
 
   /**
@@ -70,11 +91,8 @@ export class Uploader extends MyEvent {
       return item.uniqueIdentifier === uploadFile.uniqueIdentifier
     })
 
-    // 更新该文件状态
-    this.uploadFileList[index] = uploadFile
-
     // 触发上传器上传中事件
-    this.trigger('onUploaderProgress', this.uploadFileList[index])
+    this.trigger('onUploaderProgress', this.getUploaderFileInfo(this.uploadFileList[index]))
   }
 
   /**
@@ -93,25 +111,31 @@ export class Uploader extends MyEvent {
     })
       .then((response) => {
         if (response.status === 200) {
+          uploadFile.state = STATUS.SUCCESS
           // 触发上传器上传成功事件
-          this.trigger('onFileSuccess', uploadFile)
+          this.trigger('onFileSuccess', this.getUploaderFileInfo(uploadFile))
         } else {
+          uploadFile.state = STATUS.ERROR
+          uploadFile.message = response.message
           // 触发上传器上传失败事件
-          this.trigger('onFileFailed', response.data.code + ':' + response.data.message)
+          this.trigger('onFileFailed', this.getUploaderFileInfo(uploadFile))
         }
       })
       .catch((error) => {
+        uploadFile.state = STATUS.ERROR
+        uploadFile.message = error.message
         // 触发上传器上传失败事件
-        this.trigger('onFileFailed', error.message)
+        this.trigger('onFileFailed', this.getUploaderFileInfo(uploadFile))
       })
   }
 
   /**
    * 上传失败事件
    */
-  private fileErrorEvent = (error:string) => {
+  private fileErrorEvent = (uploadFile:UploadFile) => {
+    uploadFile.state = STATUS.ERROR
     // 触发上传器上传失败事件
-    this.trigger('onFileFailed', error)
+    this.trigger('onFileFailed', this.getUploaderFileInfo(uploadFile))
   }
 
   /**
@@ -146,9 +170,53 @@ export class Uploader extends MyEvent {
 
   /**
    * 取消文件上传
+   * @param uploadFileInfo 文件信息
    */
-  cancelFile() {
+  public cancelUpload(uploadFileInfo:UploaderFileInfoIF):number {
+    const index = this.getUploadFileIndex(uploadFileInfo)
 
+    this.uploadFileList[index].cancelUploadFile()
+    this.uploadFileList.splice(index, 1)
+
+    return index
+  }
+
+  /**
+   * 暂停文件上传
+   * @param uploadFileInfo 文件信息
+   */
+  public pauseUpload(uploadFileInfo:UploaderFileInfoIF) {
+    const index = this.getUploadFileIndex(uploadFileInfo)
+
+    this.uploadFileList[index].pauseUploadFile()
+  }
+
+  /**
+   * 恢复文件上传
+   * @param uploadFileInfo 文件信息
+   */
+  public resumeUpload(uploadFileInfo:UploaderFileInfoIF) {
+    const index = this.getUploadFileIndex(uploadFileInfo)
+
+    this.uploadFileList[index].resumeUploadFile()
+    // const uploadFile = this.uploadFileList[index]
+    // // 并发上传文件块
+    // uploadFile.concurrentUploadFile(true)
+    // // 上传成功
+    //   .then((response) => {
+    //     this.fileSuccessEvent(uploadFile)
+    //   })
+    // // 上传失败
+    //   .catch((error) => {
+    //     uploadFile.message = error.message
+    //     this.fileErrorEvent(uploadFile)
+    //   })
+  }
+
+  private getUploadFileIndex(uploadFileInfo:UploaderFileInfoIF):number {
+    return this.uploadFileList.findIndex((item) => {
+      return item.uniqueIdentifier === uploadFileInfo.uniqueIdentifier
+    })
   }
 
   /**

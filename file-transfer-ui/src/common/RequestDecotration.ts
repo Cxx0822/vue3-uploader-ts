@@ -10,6 +10,8 @@ export class ConRequest {
     private requestQueue = []
     // 当前请求数量
     private currentConRequestNumber:number
+    // 是否暂停
+    private isPause:boolean = false
 
     constructor(maxLimit:number) {
       this.maxLimit = maxLimit
@@ -35,10 +37,15 @@ export class ConRequest {
         const result = await chunk.uploadChunkData()
 
         // console.log('当前并发数:', this.currentConRequestNumber)
-        // 当前并发数量递减
-        this.currentConRequestNumber--
-        // 执行下一条请求
-        this.nextRequesting()
+        // 如果需要暂停
+        if (this.isPause) {
+          await this.waitRequesting()
+        } else {
+          // 当前并发数量递减
+          this.currentConRequestNumber--
+          // 执行下一条请求
+          this.nextRequesting()
+        }
 
         // 返回正确的Promise
         return Promise.resolve(result)
@@ -75,5 +82,15 @@ export class ConRequest {
       // 从队列中拿到之前Promise的resolve函数 并执行 从而释放之前的Promise
       const resolve = this.requestQueue.shift()
       resolve()
+    }
+
+    pauseRequesting() {
+      this.isPause = true
+    }
+
+    resumeRequesting() {
+      this.isPause = false
+      // 执行下一条请求
+      this.nextRequesting()
     }
 }

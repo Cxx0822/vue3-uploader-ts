@@ -83,22 +83,30 @@
 
       <el-table-column label="上传速度" align="center">
         <template #default="scope">
-          <span>{{ formatSpeed(scope.row.currentSpeed)}}</span>
+          <span>{{ formatSpeed(scope.row.currentSpeed) }}</span>
         </template>
       </el-table-column>
 
       <el-table-column label="剩余时间" align="center">
         <template #default="scope">
-          <span>{{ formatMillisecond(scope.row.timeRemaining)}}</span>
+          <span>{{ formatMillisecond(scope.row.timeRemaining) }}</span>
         </template>
       </el-table-column>
 
-      <el-table-column label="已用时" align="center" prop="currentProgress" />
-
-      <el-table-column align="right">
+      <el-table-column label="当前状态" align="center">
         <template #default="scope">
-          <el-button @click="handleEdit(scope.$index, scope.row)">Edit</el-button>
-          <el-button type="danger" @click="handleDelete(scope.$index, scope.row)">Delete</el-button>
+          <span>{{ scope.row.state + " " + scope.row.message }}</span>
+        </template>
+      </el-table-column>
+
+<!--      <el-table-column label="已用时" align="center" prop="currentProgress" />-->
+
+      <el-table-column label="操作" align="center">
+        <template #default="scope">
+          <el-button type="primary" @click="handlePauseOrResumeUpload(scope.$index, scope.row)">
+            {{ scope.row.isPause === true ? '继续' : '暂停' }}
+          </el-button>
+          <el-button type="danger" @click="handleCancelUpload(scope.$index, scope.row)">取消</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -107,20 +115,12 @@
 
 <script setup lang="ts">
 import { Uploader } from '../common/uploader'
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { UploaderFileInfoIF, UploaderUserOptionsIF } from '../types'
-import { UploadFile } from '../common/uploadFile'
 import { faImage, faFilePdf, faFile } from '@fortawesome/free-solid-svg-icons'
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatFileSize, formatMillisecond, formatSpeed } from '../utils'
 const btn = ref()
-
-const handleEdit = (index: number, row: UploadFile) => {
-  console.log(index, row)
-}
-const handleDelete = (index: number, row: UploadFile) => {
-  console.log(index, row)
-}
 
 const options:UploaderUserOptionsIF = {
   chunkSize: 5 * 1024 * 1024,
@@ -139,8 +139,26 @@ const uploader = new Uploader(options)
 
 onMounted(() => {
   uploader.assignBrowse(btn.value, false, false)
+
+  // 监听文件上传事件
+  uploader.on('onFileSuccess', onFileSuccess)
+  uploader.on('onFileFailed', onFileFailed)
+  uploader.on('onFileAdd', onFileAdd)
+  uploader.on('onUploaderProgress', onUploaderProgress)
 })
 
+onUnmounted(() => {
+  // 取消监听文件上传事件
+  uploader.off('onFileSuccess')
+  uploader.off('onFileFailed')
+  uploader.off('onFileAdd')
+  uploader.off('onUploaderProgress')
+})
+
+/**
+ * 获取文件图标
+ * @param fileName 文件名
+ */
 const getFileTypeIcon = (fileName:string) => {
   const reg = /\.[^.]+$/
   const fileType = reg.exec(fileName)?.[0].toLowerCase().slice(1)
@@ -160,29 +178,53 @@ const getFileTypeIcon = (fileName:string) => {
   return fileTypeIcon
 }
 
-const onFileSuccess = (uploadFile: UploadFile) => {
-  console.log('上传成功')
+// 添加文件事件
+const onFileAdd = (uploadFileInfo: UploaderFileInfoIF) => {
+  uploaderInfo.uploadFileList.push(uploadFileInfo)
 }
 
-const onFileFailed = (error:string) => {
-  console.log('上传失败', error)
+// 上传成功事件
+const onFileSuccess = (uploadFileInfo: UploaderFileInfoIF) => {
+  updateUploader(uploadFileInfo)
 }
 
-const onFileAdd = (uploadFile: UploadFile) => {
-  uploaderInfo.uploadFileList.push(uploadFile)
-}
-
+// 上传中事件
 const onUploaderProgress = (uploadFileInfo: UploaderFileInfoIF) => {
+  updateUploader(uploadFileInfo)
+}
+
+// 上传失败事件
+const onFileFailed = (uploadFileInfo: UploaderFileInfoIF) => {
+  updateUploader(uploadFileInfo)
+}
+
+/**
+ * 更新上传器信息
+ * @param uploadFileInfo 上传文件信息
+ */
+const updateUploader = (uploadFileInfo: UploaderFileInfoIF) => {
   const index = uploaderInfo.uploadFileList.findIndex((item) => {
     return item.uniqueIdentifier === uploadFileInfo.uniqueIdentifier
   })
   uploaderInfo.uploadFileList[index] = uploadFileInfo
 }
 
-uploader.on('onFileSuccess', onFileSuccess)
-uploader.on('onFileFailed', onFileFailed)
-uploader.on('onFileAdd', onFileAdd)
-uploader.on('onUploaderProgress', onUploaderProgress)
+// 取消文件上传
+const handleCancelUpload = (index: number, uploaderFileInfo: UploaderFileInfoIF) => {
+  const uploaderInfoIndex = uploader.cancelUpload(uploaderFileInfo)
+  uploaderInfo.uploadFileList.splice(uploaderInfoIndex, 1)
+}
+
+// 处理暂停或者取消文件上传
+const handlePauseOrResumeUpload = (index: number, uploaderFileInfo: UploaderFileInfoIF) => {
+  if (uploaderFileInfo.isPause) {
+    uploaderInfo.uploadFileList[index].isPause = false
+    uploader.resumeUpload(uploaderFileInfo)
+  } else {
+    uploaderInfo.uploadFileList[index].isPause = true
+    uploader.pauseUpload(uploaderFileInfo)
+  }
+}
 </script>
 
 <style scoped>

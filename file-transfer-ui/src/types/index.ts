@@ -1,9 +1,9 @@
-import { Chunk } from '../common/chunk'
-
+// 事件数据接口
 export interface EventDataIF {
     [key: string]: Function
 }
 
+// 上传器用户配置接口
 export interface UploaderUserOptionsIF {
     // 文件块大小
     chunkSize: number
@@ -31,6 +31,7 @@ export interface UploaderUserOptionsIF {
     autoStart?: boolean
 }
 
+// 上传器默认配置接口
 export interface UploaderDefaultOptionsIF {
     // 文件块大小
     chunkSize: number
@@ -58,6 +59,7 @@ export interface UploaderDefaultOptionsIF {
     autoStart: boolean
 }
 
+// 上传文件信息接口
 export interface UploaderFileInfoIF {
     // 文件名称
     name:string
@@ -71,8 +73,15 @@ export interface UploaderFileInfoIF {
     timeRemaining:number
     // 文件唯一标识
     uniqueIdentifier:string
+    // 当前状态
+    state: STATUS
+    // 是否暂停
+    isPause: boolean
+    // 信息
+    message: string
 }
 
+// 上传文件参数信息接口
 export interface FileParamIF {
     chunkNumber: number,
     chunkSize?: number,
@@ -83,4 +92,20 @@ export interface FileParamIF {
     fileType: string
     relativePath: string,
     totalChunks: number,
+}
+
+// 文件或文件块上传状态
+export const enum STATUS {
+    // 等待处理
+    PENDING = '文件等待上传',
+    // 上传中
+    PROGRESS = '文件上传中',
+    // 上传成功
+    SUCCESS = '文件上传成功',
+    // 上传出错
+    ERROR = '文件上传出错',
+    // 重新上传
+    RETRY = '文件重新上传',
+    // 暂停上传
+    ABORT = '文件暂停上传'
 }

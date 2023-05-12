@@ -1,6 +1,6 @@
-import { Chunk, STATUS } from './chunk'
+import { Chunk } from './chunk'
 import { MyEvent } from './myEvent'
-import { FileParamIF, UploaderDefaultOptionsIF, UploaderFileInfoIF } from '../types'
+import { FileParamIF, STATUS, UploaderDefaultOptionsIF, UploaderFileInfoIF } from '../types'
 import { ConRequest } from './RequestDecotration'
 
 export class UploadFile extends MyEvent {
@@ -16,13 +16,16 @@ export class UploadFile extends MyEvent {
   public size:number
   // 文件路径
   public relativePath:string
+  // 文件唯一标识
+  public uniqueIdentifier:string
+  // 文件上传状态
+  public state: STATUS
   // 文件块列表
   public chunks:Chunk[]
   // 当前上传的文件块个数
   private readonly uploadChunkNumber:number
-
   // 是否暂停
-  private isPaused:boolean
+  public isPaused:boolean
   // 是否错误
   private isError:boolean
   // 是否上传完成
@@ -35,8 +38,9 @@ export class UploadFile extends MyEvent {
   public currentProgress:number
   // 剩余时间 单位 s
   public timeRemaining:number
-  // 文件唯一标识
-  public uniqueIdentifier:string
+  // 消息提示
+  public message:string
+  private requestInstance:ConRequest
 
   constructor(file:File, uploaderOption:UploaderDefaultOptionsIF) {
     super()
@@ -47,6 +51,9 @@ export class UploadFile extends MyEvent {
     this.name = file.name
     this.size = file.size
     this.relativePath = file.webkitRelativePath || this.name
+    this.uniqueIdentifier = ''
+    this.state = STATUS.PENDING
+
     this.chunks = []
 
     // 状态信息
@@ -58,9 +65,12 @@ export class UploadFile extends MyEvent {
     this.currentSpeed = 0
     this.currentProgress = 0
     this.timeRemaining = 0
+    this.message = ''
 
     this.uploadChunkNumber = 0
-    this.uniqueIdentifier = ''
+
+    // 创建并发上传对象
+    this.requestInstance = new ConRequest(this.uploaderOption.simultaneousUploads)
   }
 
   /**
@@ -94,16 +104,12 @@ export class UploadFile extends MyEvent {
   /**
    * 并发上传文件块
    */
-  public async concurrentUploadFile() {
-    // 创建并发上传对象
-    const requestInstance = new ConRequest(this.uploaderOption.simultaneousUploads)
+  public async concurrentUploadFile(isResume:boolean = false) {
     // 所有的并发请求Promise
     const uploadPromises = []
     // 遍历所有的文件块 得到上传文件块的Promise请求
     this.chunks.forEach((chunk) => {
-      const promise = requestInstance.request(chunk)
-      uploadPromises.push(promise)
-
+      const promise = this.requestInstance.request(chunk)
       // 每个文件块的promise回调
       promise
       // 上传成功的处理 错误的处理放在Promise.all中
@@ -113,6 +119,14 @@ export class UploadFile extends MyEvent {
           // 触发文件块上传成功事件
           this.chunkSuccessEvent()
         })
+
+      if (isResume) {
+        if (chunk.status !== STATUS.SUCCESS) {
+          uploadPromises.push(promise)
+        }
+      } else {
+        uploadPromises.push(promise)
+      }
     })
 
     // 开启所有的上传请求
@@ -123,6 +137,7 @@ export class UploadFile extends MyEvent {
    * 文件块上传中事件 计算当前速度 进度 剩余时间等
    */
   private chunkProgressEvent = () => {
+    this.state = STATUS.PROGRESS
     // 计算当前速度
     this.currentSpeed = this.measureSpeed()
     // 计算当前进度
@@ -139,9 +154,12 @@ export class UploadFile extends MyEvent {
       name: this.name,
       size: this.size,
       uniqueIdentifier: this.uniqueIdentifier,
+      state: this.state,
       currentProgress: this.currentProgress,
       currentSpeed: this.currentSpeed,
       timeRemaining: this.timeRemaining,
+      isPause: this.isPaused,
+      message: this.message,
     }
 
     // 触发文件上传中事件 并将uploadFileInfo信息返回
@@ -228,29 +246,35 @@ export class UploadFile extends MyEvent {
   /**
    * 暂停文件上传
    */
-  private abort() {
-
+  public pauseUploadFile() {
+    this.isPaused = true
+    this.requestInstance.pauseRequesting()
+    // this.chunks.forEach((chunk) => {
+    //   if (chunk.status === STATUS.PROGRESS) {
+    //     chunk.cancelUploadChunk()
+    //     return
+    //   }
+    // })
   }
 
   /**
    * 恢复文件上传
    */
-  private resume() {
-
-  }
-
-  /**
-   * 暂停文件上传
-   */
-  private pause() {
-
+  public resumeUploadFile() {
+    this.isPaused = false
+    this.requestInstance.resumeRequesting()
   }
 
   /**
    * 取消文件上传
    */
-  public cancel() {
-
+  public cancelUploadFile() {
+    this.chunks.forEach((chunk) => {
+      if (chunk.status === STATUS.PROGRESS) {
+        chunk.cancelUploadChunk()
+        return
+      }
+    })
   }
 
   /**
