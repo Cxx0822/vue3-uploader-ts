@@ -3,6 +3,7 @@ import { UploadFile } from './uploadFile'
 import { ChunkResultTF, STATUS, UploaderDefaultOptionsIF, UploaderFileInfoIF, UploaderUserOptionsIF } from '../types'
 import { MyEvent } from './myEvent'
 import axios from 'axios'
+import * as SparkMD5 from 'spark-md5'
 
 /**
  * 上传器类
@@ -11,12 +12,12 @@ export class Uploader extends MyEvent {
   // 上传文件列表
   public uploadFileList:UploadFile[]
   // 上传器配置项
-  public opts:UploaderDefaultOptionsIF
+  public uploaderOptions:UploaderDefaultOptionsIF
 
   constructor(options:UploaderUserOptionsIF) {
     super()
     // 合并默认值配置和自定义配置
-    this.opts = Object.assign(optionsDefaults, options)
+    this.uploaderOptions = Object.assign(optionsDefaults, options)
     this.eventData = {}
     this.uploadFileList = []
   }
@@ -27,32 +28,131 @@ export class Uploader extends MyEvent {
    */
   addFiles(fileList:FileList) {
     Array.from(fileList).forEach((file:File) => {
-      // 判断文件大小
-      if (file.size > 0) {
-        // 获取文件的唯一标识
-        const uniqueIdentifier = this.generateUniqueIdentifier(file)
+      this.beforeUploadFile(file)
+    })
+  }
 
-        // 如果该文件未上传 则添加至上传文件列表中
-        if (this.IsUniqueIdentifier(uniqueIdentifier)) {
-          // 生成UploadFile对象
-          const uploadFile = new UploadFile(file, this.opts)
-          // 设置UploadFile的唯一标识
-          uploadFile.uniqueIdentifier = uniqueIdentifier
-          // 设置UploadFile初始暂停状态
-          uploadFile.isPaused = !this.opts.autoStart
+  /**
+   * 文件上传前处理
+   * @param file 需要上传的文件
+   */
+  private async beforeUploadFile(file: File) {
+    // 生成UploadFile对象
+    const uploadFile = new UploadFile(file, this.uploaderOptions)
+    // 获取文件的唯一标识
+    const uniqueIdentifier = await this.generateUniqueIdentifier(file)
+    // 设置UploadFile的唯一标识
+    uploadFile.uniqueIdentifier = uniqueIdentifier
+    // 设置UploadFile初始暂停状态
+    uploadFile.isPaused = !this.uploaderOptions.isAutoStart
 
-          // 绑定监听事件
-          uploadFile.on('onFileProgress', this.fileProgressEvent)
-          this.uploadFileList.push(uploadFile)
-          // 触发文件增加事件
-          this.trigger('onFileAdd', this.getUploaderFileInfo(uploadFile))
-
-          // 如果需要自动上传
-          if (this.opts.autoStart) {
-            this.startUploadFile(uploadFile)
-          }
+    // 文件校验
+    if (this.checkFile(file)) {
+      // 如果该文件未上传 则添加至上传文件列表中
+      if (this.IsUniqueIdentifier(uniqueIdentifier)) {
+        // 绑定监听事件
+        uploadFile.on('onFileProgress', this.fileProgressEvent)
+        this.uploadFileList.push(uploadFile)
+        // 触发文件增加事件
+        this.trigger('onFileAdd', this.getUploaderFileInfo(uploadFile))
+        // 如果需要自动上传
+        if (this.uploaderOptions.isAutoStart) {
+          this.startUploadFile(uploadFile)
         }
+      } else {
+        uploadFile.state = STATUS.SUCCESS
+        uploadFile.currentProgress = 100
+        uploadFile.message = '文件已经在上传列表中'
+        this.trigger('onFileSuccess', this.getUploaderFileInfo(uploadFile))
       }
+    } else {
+      // 触发文件增加事件
+      this.trigger('onFileAdd', this.getUploaderFileInfo(uploadFile))
+      uploadFile.state = STATUS.ERROR
+      uploadFile.message = '文件校验失败'
+      this.trigger('onFileFailed', this.getUploaderFileInfo(uploadFile))
+    }
+  }
+
+  /**
+   * 校验上传文件
+   * @param file 文件
+   */
+  private checkFile(file: File):boolean {
+    // 如果文件大小小于0或者大于最大值 则校验失败
+    if (file.size <= 0 || file.size > this.uploaderOptions.fileMaxSize) {
+      return false
+    }
+
+    // 获取文件名后缀
+    const fileType = file.name.replace(/.+\./, '')
+    // 可上传文件类型列表中不包含该文件类型 则校验失败
+    if (this.uploaderOptions.fileTypeLimit.length !== 0) {
+      return this.uploaderOptions.fileTypeLimit.includes(fileType)
+    } else {
+      return true
+    }
+  }
+
+  /**
+   * 获取文件的唯一标识
+   * @returns 文件的唯一标识
+   * @param file 文件
+   */
+  private async generateUniqueIdentifier(file:File) {
+    // 采用MD5算法生成校验字符串
+    let spark = new SparkMD5.ArrayBuffer()
+    const chunkCount = Math.ceil(file.size / this.uploaderOptions.chunkSize)
+
+    // 如果传入的是大文件 则MD5计算时间较长
+    // 因此采用第1个文件块和最后一个文件块的方式组合计算MD5 确保文件唯一
+    // TODO 采用此方法大文件计算MD5还是比较慢 需要优化
+    spark = await this.getFileSparkMD5(spark, file.slice(0, Math.min(this.uploaderOptions.chunkSize, file.size)))
+    // 如果有超过2个文件块
+    if (chunkCount > 1) {
+      const endByte = Math.min(this.uploaderOptions.chunkSize * (chunkCount - 1), file.size)
+      spark = await this.getFileSparkMD5(spark, file.slice(this.uploaderOptions.chunkSize, endByte))
+    }
+
+    // 返回计算的值
+    return spark.end()
+  }
+
+  /**
+   * 获取文件块的MD5校验值
+   * @param spark SparkMD5实例
+   * @param chunkBytes 文件块字节
+   * @private
+   */
+  private getFileSparkMD5(spark:SparkMD5.ArrayBuffer, chunkBytes: Blob) {
+    return new Promise<SparkMD5.ArrayBuffer>((resolve, reject) => {
+      const fileReader = new FileReader()
+      fileReader.readAsArrayBuffer(chunkBytes)
+
+      // 加载文件
+      fileReader.onload = (event:ProgressEvent) => {
+        // 增加MD5信息
+        spark.append(event.target.result)
+        resolve(spark)
+      }
+
+      // 加载文件
+      fileReader.onerror = () => {
+        reject('读取文件失败')
+      }
+    })
+  }
+
+  /**
+   * 判断文件是否在上传文件列表中
+   * @param uniqueIdentifier 文件唯一标识
+   * @returns 是否在上传文件列表中
+   */
+  private IsUniqueIdentifier(uniqueIdentifier:string):boolean {
+    // 防止多次上传同一个文件
+    // 如果每个文件的标识都不等于该标识 则认为该文件不在上传列表中
+    return this.uploadFileList.every((uploadFile) => {
+      return uploadFile.uniqueIdentifier !== uniqueIdentifier
     })
   }
 
@@ -66,7 +166,7 @@ export class Uploader extends MyEvent {
         const chunkResult:ChunkResultTF = response.data.data.chunkResult
         if (chunkResult.skipUpload) {
           uploadFile.currentProgress = 100
-          uploadFile.message = '文件已经存在'
+          uploadFile.message = '文件已经存在服务器中'
           this.fileSuccessEvent(uploadFile)
         } else {
           // 生成文件块
@@ -112,10 +212,7 @@ export class Uploader extends MyEvent {
    */
   private fileProgressEvent = (uploadFile: UploadFile) => {
     // 找到正在处理的文件
-    const index = this.uploadFileList.findIndex((item) => {
-      return item.uniqueIdentifier === uploadFile.uniqueIdentifier
-    })
-
+    const index = this.getUploadFileIndex(uploadFile.uniqueIdentifier)
     // 触发上传器上传中事件
     this.trigger('onUploaderProgress', this.getUploaderFileInfo(this.uploadFileList[index]))
   }
@@ -126,9 +223,9 @@ export class Uploader extends MyEvent {
    */
   private fileSuccessEvent = (uploadFile:UploadFile) => {
     // 合并文件
-    const uploadFolderPath = this.opts.uploadFolderPath
+    const uploadFolderPath = this.uploaderOptions.uploadFolderPath
     axios({
-      url: this.opts.mergeUrl,
+      url: this.uploaderOptions.mergeUrl,
       method: 'post',
       data: uploadFile,
       params: { uploadFolderPath },
@@ -164,41 +261,11 @@ export class Uploader extends MyEvent {
   }
 
   /**
-   * 获取文件的唯一标识
-   * @param file 文件
-   * @returns 文件的唯一标识
-   */
-  generateUniqueIdentifier(file:File):string {
-    // 如果有自定义的获取文件唯一标识方法
-    const custom = this.opts.generateUniqueIdentifier
-    if (typeof custom === 'function') {
-      return custom(file)
-    }
-
-    // 默认的文件唯一标识为 文件大小+文件名
-    const relativePath = file.webkitRelativePath || file.name
-    return file.size + '-' + relativePath
-  }
-
-  /**
-   * 判断文件是否在上传文件列表中
-   * @param uniqueIdentifier 文件唯一标识
-   * @returns 是否在上传文件列表中
-   */
-  IsUniqueIdentifier(uniqueIdentifier:string):boolean {
-    // 防止多次上传同一个文件
-    // 如果每个文件的标识都不等于该标识 则认为该文件不在上传列表中
-    return this.uploadFileList.every((uploadFile) => {
-      return uploadFile.uniqueIdentifier !== uniqueIdentifier
-    })
-  }
-
-  /**
    * 取消文件上传
    * @param uploadFileInfo 文件信息
    */
   public cancelUpload(uploadFileInfo:UploaderFileInfoIF):number {
-    const index = this.getUploadFileIndex(uploadFileInfo)
+    const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
 
     this.uploadFileList[index].cancelUploadFile()
     this.uploadFileList[index].deleteUploadChunk()
@@ -212,7 +279,7 @@ export class Uploader extends MyEvent {
    * @param uploadFileInfo 文件信息
    */
   public pauseUpload(uploadFileInfo:UploaderFileInfoIF) {
-    const index = this.getUploadFileIndex(uploadFileInfo)
+    const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
 
     this.uploadFileList[index].pauseUploadFile()
   }
@@ -222,19 +289,18 @@ export class Uploader extends MyEvent {
    * @param uploadFileInfo 文件信息
    */
   public resumeUpload(uploadFileInfo:UploaderFileInfoIF) {
-    const index = this.getUploadFileIndex(uploadFileInfo)
+    const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
 
     this.uploadFileList[index].resumeUploadFile()
   }
 
   /**
    * 获取当前上传文件的索引值
-   * @param uploadFileInfo 上传文件信息
-   * @private
+   * @param uniqueIdentifier 文件唯一标识
    */
-  private getUploadFileIndex(uploadFileInfo:UploaderFileInfoIF):number {
+  private getUploadFileIndex(uniqueIdentifier:string):number {
     return this.uploadFileList.findIndex((item) => {
-      return item.uniqueIdentifier === uploadFileInfo.uniqueIdentifier
+      return item.uniqueIdentifier === uniqueIdentifier
     })
   }
 
@@ -266,7 +332,7 @@ export class Uploader extends MyEvent {
       domNode.appendChild(inputElement)
     }
 
-    if (!this.opts.singleFile && !singleFile) {
+    if (!this.uploaderOptions.isSingleFile && !singleFile) {
       inputElement.setAttribute('multiple', 'multiple')
     }
 
@@ -292,17 +358,17 @@ export class Uploader extends MyEvent {
 }
 
 const optionsDefaults:UploaderDefaultOptionsIF = {
+  fileMaxSize: 200 * 1024 * 1024,
   chunkSize: 5 * 1024 * 1024,
   // BUG TODO 如果是并发上传 会导致计算的速度有问题 原因是this.startTime的位置有问题
-  // 但总时长是对的
   simultaneousUploads: 1,
-  singleFile: false,
-  fileParameterName: 'file',
-  headers: {},
-  uploadUrl: '/',
-  mergeUrl: '',
-  uploadFolderPath: '/',
-  maxChunkRetries: 0,
+  maxChunkRetries: 3,
+  isSingleFile: true,
   successCode: [20000],
-  autoStart: true,
+  fileTypeLimit: [],
+  isAutoStart: true,
+  uploadUrl: '/',
+  mergeUrl: '/',
+  fileParameterName: 'multipartFile',
+  uploadFolderPath: '/',
 }

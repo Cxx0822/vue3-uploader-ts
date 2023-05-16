@@ -77,17 +77,18 @@ import { UploaderFileInfoIF, UploaderUserOptionsIF } from '../types'
 import { faImage, faFilePdf, faFile } from '@fortawesome/free-solid-svg-icons'
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatFileSize, formatMillisecond, formatSpeed } from '../utils'
+import { File } from 'buffer'
 const btn = ref()
 
 const serviceIp = '192.168.5.80'
 
 const options:UploaderUserOptionsIF = {
-  chunkSize: 5 * 1024 * 1024,
+  isAutoStart: true,
+  fileTypeLimit: ['deb', 'pdf', 'txt', 'log'],
   uploadUrl: 'http://' + serviceIp + ':8080/fileUpload/chunk',
   mergeUrl: 'http://' + serviceIp + ':8080/fileUpload/mergeFile',
   fileParameterName: 'multipartFile',
   uploadFolderPath: '/home/cxx/Downloads/uploadFiles',
-  autoStart: true,
 }
 
 const uploaderInfo = reactive({

@@ -20,9 +20,9 @@ export class Chunk extends MyEvent {
   // 文件块大小
   private readonly chunkSize:number
   // 起始字节
-  private readonly startByte:number
+  public readonly startByte:number
   // 终止字节
-  private readonly endByte:number
+  public readonly endByte:number
   // 文件字节
   private bytes:Blob
   // 当前状态
