@@ -3,12 +3,10 @@ import { MyEvent } from './myEvent'
 import axios from 'axios'
 
 /**
- * 上传块类 利用XMLHttpRequest发送网络请求
+ * 上传块类 利用Axios发送网络请求
  * 1. 根据文件计算需要上传的文件块
  * 2. 预处理文件
- * 3. 预处理XHR请求
- * 4. 发送数据
- * 5. 监听XHR事件
+ * 3. 发送数据
  */
 export class Chunk extends MyEvent {
   // 文件
@@ -27,8 +25,6 @@ export class Chunk extends MyEvent {
   private readonly endByte:number
   // 文件字节
   private bytes:Blob
-  // XMLHttpRequest对象
-  private xhr:XMLHttpRequest | null
   // 当前状态
   public status:STATUS
   // 已上传字节数
@@ -57,7 +53,6 @@ export class Chunk extends MyEvent {
     this.chunkSize = this.uploaderOption.chunkSize
     this.startByte = this.computeStartByte()
     this.endByte = this.computeEndByte()
-    this.xhr = null
     this.status = STATUS.PENDING
     this.loaded = 0
     this.total = 0
@@ -249,7 +244,6 @@ export class Chunk extends MyEvent {
 
   // 终止操作
   public cancelUploadChunk() {
-    console.log('cancelUploadChunk')
     // 取消请求
     this.controller.abort()
   }

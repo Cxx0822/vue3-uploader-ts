@@ -4,49 +4,6 @@
       选择文件
     </label>
 
-<!--    <table class="upload-file-list">-->
-<!--      <caption>文件上传列表</caption>-->
-<!--      <thead>-->
-<!--        <tr>-->
-<!--          <th></th>-->
-<!--          <th>文件名称</th>-->
-<!--          <th>文件大小</th>-->
-<!--          <th>当前进度</th>-->
-<!--          <th>上传速度</th>-->
-<!--          <th>剩余时间</th>-->
-<!--          <th>总时间</th>-->
-<!--          <th>控制</th>-->
-<!--        </tr>-->
-<!--      </thead>-->
-
-<!--      <tbody>-->
-<!--        <tr v-for="(item, index) in uploaderInfo.uploadFileList" :key="index">-->
-<!--          <td>-->
-<!--            <button>选择</button>-->
-<!--          </td>-->
-<!--          <td>-->
-<!--            <img src="../assets/vue.svg">-->
-<!--            {{ item.name }}-->
-<!--          </td>-->
-<!--          <td>{{ item.size / 1000 }} kb</td>-->
-<!--          <td>{{ item.currentProgress }} %</td>-->
-<!--          <td>{{ item.currentSpeed }} kb/s</td>-->
-<!--          <td>{{ item.timeRemaining }} s</td>-->
-<!--          <td>{{  }} s</td>-->
-<!--          <td>-->
-<!--            <button>暂停</button>-->
-<!--            <button>取消</button>-->
-<!--          </td>-->
-<!--        </tr>-->
-<!--      </tbody>-->
-
-<!--      <tfoot>-->
-<!--        <tr>-->
-<!--          <td colspan="8">总传输速度</td>-->
-<!--        </tr>-->
-<!--      </tfoot>-->
-<!--    </table>-->
-
     <el-table
         :data="uploaderInfo.uploadFileList"
         :row-style="{height: '60px'}"
@@ -106,7 +63,7 @@
           <el-button type="primary" @click="handlePauseOrResumeUpload(scope.$index, scope.row)">
             {{ scope.row.isPause === true ? '继续' : '暂停' }}
           </el-button>
-          <el-button type="danger" @click="handleCancelUpload(scope.$index, scope.row)">取消</el-button>
+          <el-button type="danger" :disabled="!scope.row.isPause" @click="handleCancelUpload(scope.$index, scope.row)" >取消</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -122,10 +79,12 @@ import { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatFileSize, formatMillisecond, formatSpeed } from '../utils'
 const btn = ref()
 
+const serviceIp = '192.168.5.80'
+
 const options:UploaderUserOptionsIF = {
   chunkSize: 5 * 1024 * 1024,
-  uploadUrl: 'http://192.168.5.80:8080/fileUpload/chunk',
-  mergeUrl: 'http://192.168.5.80:8080/fileUpload/mergeFile',
+  uploadUrl: 'http://' + serviceIp + ':8080/fileUpload/chunk',
+  mergeUrl: 'http://' + serviceIp + ':8080/fileUpload/mergeFile',
   fileParameterName: 'multipartFile',
   uploadFolderPath: '/home/cxx/Downloads/uploadFiles',
   autoStart: true,

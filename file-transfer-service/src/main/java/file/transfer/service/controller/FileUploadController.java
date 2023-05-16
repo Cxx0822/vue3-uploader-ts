@@ -51,21 +51,42 @@ public class FileUploadController {
         ChunkResult chunkResult = new ChunkResult();
         List<Integer> uploadedChunkList = new ArrayList<>();
 
-        String file = uploadFolderPath + File.separator + identifier + File.separator + filename;
+        String folder = uploadFolderPath + File.separator + identifier;
+        String file = folder + File.separator + filename;
 
-        //先判断整个文件是否已经上传过了，如果是，则告诉前端跳过上传，实现秒传
-        if (UploadFileUtil.fileExists(file)) {
-            chunkResult.setSkipUpload(true);
-            chunkResult.setUploadedChunkList(uploadedChunkList);
-            log.info("完整文件已存在，直接跳过上传，实现秒传");
+        // 判断文件夹是否存在
+        if (UploadFileUtil.fileExists(folder)) {
+            // 先判断整个文件是否已经上传过了，如果是，则告诉前端跳过上传，实现秒传
+            if (UploadFileUtil.fileExists(file)) {
+                chunkResult.setSkipUpload(true);
+                chunkResult.setUploadedChunkList(uploadedChunkList);
+                log.info("完整文件已存在，直接跳过上传，实现秒传");
+            } else {
+                chunkResult.setSkipUpload(false);
+                // 获取已经上传的文件块
+                chunkResult.setUploadedChunkList(UploadFileUtil.getUploadedChunkList(folder, filename));
+            }
         } else {
             chunkResult.setSkipUpload(false);
-            // TODO 这里的文件路径不对 要加上唯一标识
-            // 获取已经上传的文件块
-            chunkResult.setUploadedChunkList(UploadFileUtil.getUploadedChunkList(uploadFolderPath, filename));
+            chunkResult.setUploadedChunkList(uploadedChunkList);
         }
 
+
         return R.ok().data("chunkResult", chunkResult);
+    }
+
+    @ApiOperation("删除当前已上传的文件块")
+    @DeleteMapping("/chunk")
+    public R deleteChunk(@RequestParam String identifier,
+                        @RequestParam String uploadFolderPath) {
+        String folder = uploadFolderPath + File.separator + identifier;
+
+        // 判断文件夹是否存在
+        if (UploadFileUtil.fileExists(folder)) {
+            UploadFileUtil.deleteDirectory(folder);
+        }
+
+        return R.ok();
     }
 
     @PostMapping("/mergeFile")

@@ -94,6 +94,17 @@ export interface FileParamIF {
     totalChunks: number,
 }
 
+/**
+ * 上传文件块返回结果
+ */
+export interface ChunkResultTF {
+    // 是否可以跳过上传
+    skipUpload:boolean
+
+    // 已经上传的文件块列表
+    uploadedChunkList:number[]
+}
+
 // 文件或文件块上传状态
 export const enum STATUS {
     // 等待处理

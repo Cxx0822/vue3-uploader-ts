@@ -8,11 +8,12 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 @Slf4j
 public class UploadFileUtil {
-    private static final char fileSeparator = '_';
+    private static final String fileSeparator = "_";
 
     /**
      * 获取文件路径
@@ -39,15 +40,16 @@ public class UploadFileUtil {
 
     public static List<Integer> getUploadedChunkList(String folder, String filename) {
         List<Integer> uploadedChunkList = new ArrayList<>();
+
         // 获取文件夹下所有的文件
         try (Stream<Path> list = Files.list(Paths.get(folder))) {
             // 去除需要合并的文件
             list.filter(path -> !path.getFileName().toString().equals(filename))
                     // 循环遍历文件 将已经上传的文件序号添加至列表中
                     .forEach(path -> {
-                        log.info(path.getFileName().toString());
-                        // String[] split = path.getFileName().toString().split(String.valueOf(fileSeparator));
-                        // uploadedChunkList.add(Integer.valueOf(split[split.length - 1]));
+                        String chunkPath = path.getFileName().toString();
+                        int index = chunkPath.lastIndexOf(fileSeparator);
+                        uploadedChunkList.add(Integer.valueOf(chunkPath.substring(index + 1)));
                     });
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -80,7 +82,8 @@ public class UploadFileUtil {
                             String p2 = o2.getFileName().toString();
                             int i1 = p1.lastIndexOf(fileSeparator);
                             int i2 = p2.lastIndexOf(fileSeparator);
-                            return Integer.valueOf(p2.substring(i2)).compareTo(Integer.valueOf(p1.substring(i1)));
+                            return Integer.valueOf(p2.substring(i2 + 1))
+                                    .compareTo(Integer.valueOf(p1.substring(i1 + 1)));
                         })
                         // 循环写入到文件中
                         .forEach(path -> {
@@ -107,5 +110,59 @@ public class UploadFileUtil {
     public static boolean fileExists(String file) {
         Path path = Paths.get(file);
         return Files.exists(path, LinkOption.NOFOLLOW_LINKS);
+    }
+
+    /**
+     * 删除目录（文件夹）以及目录下的文件
+     *
+     * @param sPath 被删除目录的文件路径
+     * @return 目录删除成功返回true，否则返回false
+     */
+    public static boolean deleteDirectory(String sPath) {
+        // 如果sPath不以文件分隔符结尾，自动添加文件分隔符
+        if (!sPath.endsWith(File.separator)) {
+            sPath = sPath + File.separator;
+        }
+        File dirFile = new File(sPath);
+        // 如果dir对应的文件不存在，或者不是一个目录，则退出
+        if (!dirFile.exists() || !dirFile.isDirectory()) {
+            return false;
+        }
+
+        boolean flag = true;
+        // 删除文件夹下的所有文件(包括子目录)
+        File[] files = dirFile.listFiles();
+        for (File file : Objects.requireNonNull(files)) {
+            // 删除子文件
+            if (file.isFile()) {
+                flag = deleteFile(file.getAbsolutePath());
+            }
+            // 删除子目录
+            else {
+                flag = deleteDirectory(file.getAbsolutePath());
+            }
+            if (!flag) break;
+        }
+        if (!flag) return false;
+
+        log.info("文件删除成功");
+        // 删除当前目录
+        return dirFile.delete();
+    }
+
+    /**
+     * 删除单个文件
+     *
+     * @param sPath 被删除文件的文件名
+     * @return 单个文件删除成功返回true，否则返回false
+     */
+    public static boolean deleteFile(String sPath) {
+        boolean flag = false;
+        File file = new File(sPath);
+        // 路径为文件且不为空则进行删除
+        if (file.isFile() && file.exists()) {
+            flag = file.delete();
+        }
+        return flag;
     }
 }

@@ -99,7 +99,7 @@ export class UploadFile extends MyEvent {
   /**
    * 对文件切片 生成文件块
    */
-  public generateChunks() {
+  public generateChunks(chunkIndex:number) {
     // 文件块个数
     const chunkNumber = Math.max(Math.ceil(this.size / this.uploaderOption.chunkSize), 1)
 
@@ -122,32 +122,33 @@ export class UploadFile extends MyEvent {
       chunk.on('onChunkProgress', this.chunkProgressEvent)
       this.chunks.push(chunk)
     }
+
+    for (let i = 0; i < chunkIndex; i++) {
+      this.chunks[i].status = STATUS.SUCCESS
+      this.chunks[i].off('onChunkProgress')
+    }
   }
 
   /**
    * 并发上传文件块
    */
-  public async concurrentUploadFile(isResume:boolean = false) {
+  public async concurrentUploadFile() {
     // 所有的并发请求Promise
     const uploadPromises = []
     // 遍历所有的文件块 得到上传文件块的Promise请求
     this.chunks.forEach((chunk) => {
-      const promise = this.requestInstance.request(chunk)
-      // 每个文件块的promise回调
-      promise
-      // 上传成功的处理 错误的处理放在Promise.all中
-        .then((response) => {
-          // 取消监听事件
-          chunk.off('onChunkProgress')
-          // 触发文件块上传成功事件
-          this.chunkSuccessEvent()
-        })
+      if (chunk.status !== STATUS.SUCCESS) {
+        const promise = this.requestInstance.request(chunk)
+        // 每个文件块的promise回调
+        promise
+        // 上传成功的处理 错误的处理放在Promise.all中
+          .then((response) => {
+            // 取消监听事件
+            chunk.off('onChunkProgress')
+            // 触发文件块上传成功事件
+            this.chunkSuccessEvent()
+          })
 
-      if (isResume) {
-        if (chunk.status !== STATUS.SUCCESS) {
-          uploadPromises.push(promise)
-        }
-      } else {
         uploadPromises.push(promise)
       }
     })
@@ -272,12 +273,6 @@ export class UploadFile extends MyEvent {
   public pauseUploadFile() {
     this.isPaused = true
     this.requestInstance.pauseRequesting()
-    // this.chunks.forEach((chunk) => {
-    //   if (chunk.status === STATUS.PROGRESS) {
-    //     chunk.cancelUploadChunk()
-    //     return
-    //   }
-    // })
   }
 
   /**
@@ -297,6 +292,19 @@ export class UploadFile extends MyEvent {
         chunk.cancelUploadChunk()
         return
       }
+    })
+  }
+
+  /**
+   * 删除文件块信息
+   */
+  public deleteUploadChunk() {
+    const identifier = this.uniqueIdentifier
+    const uploadFolderPath = this.uploaderOption.uploadFolderPath
+    axios({
+      url: this.uploaderOption.uploadUrl,
+      method: 'delete',
+      params: { identifier, uploadFolderPath },
     })
   }
 }

@@ -1,6 +1,6 @@
 import { UploadFile } from './uploadFile'
 
-import { STATUS, UploaderDefaultOptionsIF, UploaderFileInfoIF, UploaderUserOptionsIF } from '../types'
+import { ChunkResultTF, STATUS, UploaderDefaultOptionsIF, UploaderFileInfoIF, UploaderUserOptionsIF } from '../types'
 import { MyEvent } from './myEvent'
 import axios from 'axios'
 
@@ -63,13 +63,14 @@ export class Uploader extends MyEvent {
   public startUploadFile(uploadFile: UploadFile) {
     uploadFile.checkSkipUploadFile()
       .then((response) => {
-        const { chunkResult } = response.data.data
-        console.log(chunkResult)
+        const chunkResult:ChunkResultTF = response.data.data.chunkResult
         if (chunkResult.skipUpload) {
-          console.log('文件传输成功')
+          uploadFile.currentProgress = 100
+          uploadFile.message = '文件已经存在'
+          this.fileSuccessEvent(uploadFile)
         } else {
           // 生成文件块
-          uploadFile.generateChunks()
+          uploadFile.generateChunks(chunkResult.uploadedChunkList.length)
           // 并发上传文件块
           uploadFile.concurrentUploadFile()
           // 上传成功
@@ -200,6 +201,7 @@ export class Uploader extends MyEvent {
     const index = this.getUploadFileIndex(uploadFileInfo)
 
     this.uploadFileList[index].cancelUploadFile()
+    this.uploadFileList[index].deleteUploadChunk()
     this.uploadFileList.splice(index, 1)
 
     return index
@@ -223,20 +225,13 @@ export class Uploader extends MyEvent {
     const index = this.getUploadFileIndex(uploadFileInfo)
 
     this.uploadFileList[index].resumeUploadFile()
-    // const uploadFile = this.uploadFileList[index]
-    // // 并发上传文件块
-    // uploadFile.concurrentUploadFile(true)
-    // // 上传成功
-    //   .then((response) => {
-    //     this.fileSuccessEvent(uploadFile)
-    //   })
-    // // 上传失败
-    //   .catch((error) => {
-    //     uploadFile.message = error.message
-    //     this.fileErrorEvent(uploadFile)
-    //   })
   }
 
+  /**
+   * 获取当前上传文件的索引值
+   * @param uploadFileInfo 上传文件信息
+   * @private
+   */
   private getUploadFileIndex(uploadFileInfo:UploaderFileInfoIF):number {
     return this.uploadFileList.findIndex((item) => {
       return item.uniqueIdentifier === uploadFileInfo.uniqueIdentifier
