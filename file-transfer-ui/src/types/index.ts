@@ -1,6 +1,4 @@
 // 事件数据接口
-import { File } from 'buffer'
-
 export interface EventDataIF {
     [key: string]: Function
 }

@@ -82,8 +82,8 @@ public class UploadFileUtil {
                             String p2 = o2.getFileName().toString();
                             int i1 = p1.lastIndexOf(fileSeparator);
                             int i2 = p2.lastIndexOf(fileSeparator);
-                            return Integer.valueOf(p2.substring(i2 + 1))
-                                    .compareTo(Integer.valueOf(p1.substring(i1 + 1)));
+                            return Integer.valueOf(p1.substring(i1 + 1))
+                                    .compareTo(Integer.valueOf(p2.substring(i2 + 1)));
                         })
                         // 循环写入到文件中
                         .forEach(path -> {

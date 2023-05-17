@@ -34,11 +34,11 @@ export function formatFileSize(size:number, digits:number = 2) {
   if (size < 1024) {
     return size + 'B'
   } else if (size >= 1024 && size < Math.pow(1024, 2)) {
-    return parseFloat(<string>(size / 1024)).toFixed(digits) + 'KB'
+    return parseFloat((size / 1024).toString()).toFixed(digits) + 'KB'
   } else if (size >= Math.pow(1024, 2) && size < Math.pow(1024, 3)) {
-    return parseFloat(<string>(size / Math.pow(1024, 2))).toFixed(digits) + 'MB'
+    return parseFloat((size / Math.pow(1024, 2)).toString()).toFixed(digits) + 'MB'
   } else if (size > Math.pow(1024, 3)) {
-    return parseFloat(<string>(size / Math.pow(1024, 3))).toFixed(digits) + 'GB'
+    return parseFloat((size / Math.pow(1024, 3)).toString()).toFixed(digits) + 'GB'
   } else {
     return 0 + 'B'
   }
@@ -53,9 +53,9 @@ export function formatSpeed(speed:number, digits:number = 2) {
   if (speed < 1024) {
     return speed + 'Kb/s'
   } else if (speed >= 1024 && speed < Math.pow(1024, 2)) {
-    return parseFloat(<string>(speed / 1024)).toFixed(digits) + 'Mb/s'
+    return parseFloat((speed / 1024).toString()).toFixed(digits) + 'Mb/s'
   } else if (speed >= Math.pow(1024, 2) && speed < Math.pow(1024, 3)) {
-    return parseFloat(<string>(speed / Math.pow(1024, 2))).toFixed(digits) + 'Gb/s'
+    return parseFloat((speed / Math.pow(1024, 2)).toString()).toFixed(digits) + 'Gb/s'
   } else {
     return 0 + 'B'
   }
