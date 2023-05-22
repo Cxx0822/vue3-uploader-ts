@@ -71,7 +71,6 @@ public class FileUploadController {
             chunkResult.setUploadedChunkList(uploadedChunkList);
         }
 
-
         return R.ok().data("chunkResult", chunkResult);
     }
 

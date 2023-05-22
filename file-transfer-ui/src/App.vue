@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
+import UploadFile from './components/UploadFile.vue'
+import DownloadFile from './components/DownloadFile.vue'
 </script>
 
 <template>
-  <HelloWorld />
+<!--  <upload-file />-->
+  <download-file/>
 </template>
 
 <style scoped>
