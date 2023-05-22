@@ -89,85 +89,62 @@ public class FileDownloadController {
                              @RequestParam String fileName,
                              HttpServletRequest request,
                              HttpServletResponse response) throws IOException {
-        // 设置编码格式
-        response.setCharacterEncoding(utf8);
-        //获取文件路径
-        //参数校验
 
-        log.info(fileName, downloadFolderPath);
-        //完整路径(路径拼接待优化-前端传输优化-后端从新格式化  )
-        String pathAll = downloadFolderPath + File.separator + fileName;
-        log.info("pathAll{}", pathAll);
-        Optional<String> pathFlag = Optional.of(pathAll);
-        File file = null;
-        //根据文件名，读取file流
-        file = new File(pathAll);
-        log.info("文件路径是{}", pathAll);
+        // 获取文件路径
+        String downloadFilePath = downloadFolderPath + File.separator + fileName;
+        File file = new File(downloadFilePath);
         if (!file.exists()) {
-            log.warn("文件不存在");
+            log.error("File is not exist");
             return;
         }
 
-        InputStream is = null;
-        OutputStream os = null;
+        InputStream inputStream = null;
+        OutputStream outputStream = null;
         try {
-            //分片下载
-            long fSize = file.length();//获取长度
+            // 分片下载
+            long fileSize = file.length();
+            // 定义断点
+            long startPosition, endPosition, sum = 0;
+
             response.setContentType("application/x-download");
-            String file_Name = URLEncoder.encode(file.getName(), StandardCharsets.UTF_8);
             response.addHeader("Content-Disposition", "attachment;filename=" + fileName);
             //根据前端传来的Range  判断支不支持分片下载
             response.setHeader("Accept-Range", "bytes");
-            //获取文件大小
-            //response.setHeader("fSize",String.valueOf(fSize));
-            // response.setHeader("Access-Control-Expose-Headers", "filename");
-            // log.info("filename:" + file_Name);
-            // response.setHeader("filename", file_Name);
-            //定义断点
-            long pos = 0, last = fSize - 1, sum = 0;
-            //判断前端需不需要分片下载
-            if (null != request.getHeader("Range")) {
-                response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
-                String numRange = request.getHeader("Range").replaceAll("bytes=", "");
-                String[] strRange = numRange.split("-");
 
-                if (strRange.length == 2) {
-                    pos = Long.parseLong(strRange[0].trim());
-                    last = Long.parseLong(strRange[1].trim());
-                    //若结束字节超出文件大小 取文件大小
-                    if (last > fSize - 1) {
-                        last = fSize - 1;
-                    }
-                } else {
-                    //若只给一个长度  开始位置一直到结束
-                    pos = Long.parseLong(numRange.replaceAll("-", "").trim());
-                }
+            response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
+            // 获取前端的文件块范围
+            String chunkRange = request.getHeader("Range");
+            String[] chunkRangeArray = chunkRange.split("-");
+
+            // 获取文件块的起始位置
+            startPosition = Long.parseLong(chunkRangeArray[0]);
+            endPosition = Long.parseLong(chunkRangeArray[1]);
+            // 若结束字节超出文件大小 取文件大小
+            if (endPosition > fileSize - 1) {
+                endPosition = fileSize - 1;
             }
 
-            long rangeLenght = last - pos + 1;
-            String contentRange = "bytes" + pos + "-" + last + "/" + fSize;
-            log.info(contentRange);
-            response.setHeader("Access-Control-Expose-Headers", "Content-Range");
-            response.setHeader("Content-Range", contentRange);
+            long rangeLength = endPosition - startPosition + 1;
 
-            os = new BufferedOutputStream(response.getOutputStream());
-            is = new BufferedInputStream(new FileInputStream(file));
-            is.skip(pos);//跳过已读的文件(重点，跳过之前已经读过的文件)
+            outputStream = new BufferedOutputStream(response.getOutputStream());
+            inputStream = new BufferedInputStream(new FileInputStream(file));
+            // 跳过之前下载的位置
+            long skip = inputStream.skip(startPosition);
+            // 循环读取文件并写入到response中
             byte[] buffer = new byte[1024];
-            int lenght = 0;
-            //相等证明读完
-            while (sum < rangeLenght) {
-                lenght = is.read(buffer, 0, (rangeLenght - sum) <= buffer.length ? (int) (rangeLenght - sum) : buffer.length);
-                sum = sum + lenght;
-                os.write(buffer, 0, lenght);
+            int length = 0;
+            while (sum < rangeLength) {
+                int len = (rangeLength - sum) <= buffer.length ? (int) (rangeLength - sum) : buffer.length;
+                length = inputStream.read(buffer, 0, len);
+                sum = sum + length;
+                outputStream.write(buffer, 0, length);
             }
-            log.info("下载完成");
         } finally {
-            if (is != null) {
-                is.close();
+            if (inputStream != null) {
+                inputStream.close();
             }
-            if (os != null) {
-                os.close();
+            if (outputStream != null) {
+                outputStream.close();
             }
         }
     }
