@@ -8,7 +8,7 @@
 import axios from 'axios'
 
 const downloadFolderPath = 'D:\\temp\\downloads'
-const fileName = 'test.zip'
+const fileName = 'burt-cut-fruit_1.1.0_amd64.zip'
 let currentChunkIndex = 0
 let percentage = '0'
 const chunkList = [] // 文件流数组
@@ -40,11 +40,11 @@ const downloadChunk = (chunkIndex) => {
   }
 
   const headers = {
-    range: range,
+    range: 'bytes=' + range,
   }
 
   axios({
-    url: 'http://127.0.0.1:8080/fileDownload/down',
+    url: 'http://127.0.0.1:8080/fileDownload/chunk',
     method: 'get',
     params: { downloadFolderPath, fileName },
     headers: headers,
