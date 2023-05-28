@@ -132,7 +132,7 @@ export class Uploader extends MyEvent {
       // 加载文件
       fileReader.onload = (event:ProgressEvent) => {
         // 增加MD5信息
-        spark.append(event.target.result)
+        spark.append((event.target as any).result)
         resolve(spark)
       }
 
@@ -162,7 +162,7 @@ export class Uploader extends MyEvent {
    */
   public startUploadFile(uploadFile: UploadFile) {
     uploadFile.checkSkipUploadFile()
-      .then((response) => {
+      .then((response:any) => {
         const chunkResult:ChunkResultTF = response.data.data.chunkResult
         if (chunkResult.skipUpload) {
           uploadFile.currentProgress = 100
@@ -174,7 +174,7 @@ export class Uploader extends MyEvent {
           // 并发上传文件块
           uploadFile.concurrentUploadFile()
           // 上传成功
-            .then((response) => {
+            .then(() => {
               this.fileSuccessEvent(uploadFile)
             })
           // 上传失败
@@ -231,7 +231,7 @@ export class Uploader extends MyEvent {
       params: { uploadFolderPath },
       responseType: 'blob',
     })
-      .then((response) => {
+      .then((response:any) => {
         if (response.status === 200) {
           uploadFile.state = STATUS.SUCCESS
           // 触发上传器上传成功事件

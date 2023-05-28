@@ -4,8 +4,12 @@ import DownloadFile from './components/DownloadFile.vue'
 </script>
 
 <template>
-<!--  <upload-file />-->
-  <download-file/>
+  <el-card shadow="always">
+    <h3>上传文件模块</h3>
+    <upload-file />
+  </el-card>
+
+<!--  <download-file/>-->
 </template>
 
 <style scoped>

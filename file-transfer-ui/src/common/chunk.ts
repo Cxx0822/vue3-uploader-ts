@@ -24,7 +24,7 @@ export class Chunk extends MyEvent {
   // 终止字节
   public readonly endByte:number
   // 文件字节
-  private bytes:Blob
+  private readonly bytes:Blob
   // 当前状态
   public status:STATUS
   // 已上传字节数
@@ -60,8 +60,8 @@ export class Chunk extends MyEvent {
 
     this.controller = new AbortController()
 
-    // 读取文件块 获取需要上传的字节
-    this.readFile()
+    // 切分文件 获取字节数
+    this.bytes = this.file.slice(this.startByte, this.endByte, this.fileParam.fileType)
   }
 
   /**
@@ -102,14 +102,6 @@ export class Chunk extends MyEvent {
       relativePath: this.fileParam.relativePath,
       totalChunks: this.fileParam.totalChunks,
     }
-  }
-
-  /**
-   * 读取文件块
-   */
-  private readFile() {
-    // 切分文件 获取字节数
-    this.bytes = this.file.slice(this.startByte, this.endByte, this.fileParam.fileType)
   }
 
   /**
@@ -177,6 +169,9 @@ export class Chunk extends MyEvent {
     this.trigger('onChunkProgress')
   }
 
+  /**
+   * 初始化Axios请求头参数
+   */
   private initAxiosRequestConfig() {
     // 添加请求拦截器
     axios.interceptors.request.use((config) => {
@@ -212,6 +207,8 @@ export class Chunk extends MyEvent {
       // 上传服务器的文件路径
       const uploadFolderPath = this.uploaderOption.uploadFolderPath
       // 构建Axios请求
+      this.initAxiosRequestConfig()
+      // @ts-ignore
       axios({
         method: 'post',
         url: this.uploaderOption.uploadUrl,

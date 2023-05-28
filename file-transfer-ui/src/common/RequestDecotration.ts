@@ -7,7 +7,7 @@ export class ConRequest {
     // 最大并发请求数量
     private readonly maxLimit:number = 3
     // 请求队列
-    private requestQueue = []
+    private requestQueue:Function[] = []
     // 当前请求数量
     private currentConRequestNumber:number
     // 是否暂停
@@ -65,11 +65,11 @@ export class ConRequest {
      * 等待请求
      */
     waitRequesting() {
-      let _resolve
+      let _resolve:Function = () => {}
       // 创建一个空Promise 并拿到该resolve函数
       // 只要该Promise没有被resolve或者reject 就会一直处在Pending中
       // 相当于Promise被暂停在此处
-      const promise = new Promise((resolve) => { _resolve = resolve })
+      const promise = new Promise((resolve:Function) => { _resolve = resolve })
       this.requestQueue.push(_resolve)
       return promise
     }
@@ -80,7 +80,7 @@ export class ConRequest {
     nextRequesting() {
       if (this.requestQueue.length <= 0) return
       // 从队列中拿到之前Promise的resolve函数 并执行 从而释放之前的Promise
-      const resolve = this.requestQueue.shift()
+      const resolve = this.requestQueue.shift() as Function
       resolve()
     }
 

@@ -109,6 +109,28 @@ export interface ChunkResultTF {
     uploadedChunkList:number[]
 }
 
+// 下载器默认配置接口
+export interface DownloaderDefaultOptionsIF {
+    // 文件块大小
+    chunkSize: number
+    // 同时上传的文件块个数
+    simultaneousDownloads: number
+    // 最大重试上传次数
+    maxChunkRetries: number
+    // 是否自动下载
+    isAutoStart: boolean
+    // 自定义请求头
+    headers?: {}
+    // 获取文件信息接口
+    getFileInfoUrl: string,
+    // 下载文件块接口
+    downloadChunkUrl: string,
+    // 下载文件名
+    fileName: string
+    // 文件下载地址
+    downloadFolderPath: string
+}
+
 // 文件或文件块上传状态
 export const enum STATUS {
     // 等待处理

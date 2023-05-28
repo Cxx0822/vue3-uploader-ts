@@ -1,8 +1,20 @@
 <template>
   <div>
-    <label class="uploader-btn" ref="btn">
-      选择文件
-    </label>
+    <el-form :inline="true" :model="uploaderInfo" class="demo-form-inline">
+      <el-form-item label="服务器地址">
+        <el-input v-model="uploaderInfo.serviceIp"/>
+      </el-form-item>
+
+      <el-form-item label="上传文件夹路径">
+        <el-input v-model="uploaderInfo.uploadFolderPath" style="width: 300px"/>
+      </el-form-item>
+
+      <el-form-item>
+        <label class="uploader-btn" ref="selectFileBtn">
+          选择文件
+        </label>
+      </el-form-item>
+    </el-form>
 
     <el-table
         :data="uploaderInfo.uploadFileList"
@@ -40,30 +52,30 @@
 
       <el-table-column label="上传速度" align="center">
         <template #default="scope">
-          <span>{{ formatSpeed(scope.row.currentSpeed) }}</span>
+          <el-text>{{ formatSpeed(scope.row.currentSpeed) }}</el-text>
         </template>
       </el-table-column>
 
       <el-table-column label="剩余时间" align="center">
         <template #default="scope">
-          <span>{{ formatMillisecond(scope.row.timeRemaining) }}</span>
+          <el-text>{{ formatMillisecond(scope.row.timeRemaining) }}</el-text>
         </template>
       </el-table-column>
 
       <el-table-column label="当前状态" align="center">
         <template #default="scope">
-          <span>{{ scope.row.state + " " + scope.row.message }}</span>
+          <el-text>{{ scope.row.state + " " + scope.row.message }}</el-text>
         </template>
       </el-table-column>
-
-<!--      <el-table-column label="已用时" align="center" prop="currentProgress" />-->
 
       <el-table-column label="操作" align="center">
         <template #default="scope">
           <el-button type="primary" @click="handlePauseOrResumeUpload(scope.$index, scope.row)">
             {{ scope.row.isPause === true ? '继续' : '暂停' }}
           </el-button>
-          <el-button type="danger" :disabled="!scope.row.isPause" @click="handleCancelUpload(scope.$index, scope.row)" >取消</el-button>
+          <el-button type="danger"
+                     :disabled="!scope.row.isPause"
+                     @click="handleCancelUpload(scope.$index, scope.row)" >取消</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -77,27 +89,31 @@ import { UploaderFileInfoIF, UploaderUserOptionsIF } from '../types'
 import { faImage, faFilePdf, faFile } from '@fortawesome/free-solid-svg-icons'
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatFileSize, formatMillisecond, formatSpeed } from '../utils'
-const btn = ref()
 
-const serviceIp = '192.168.5.80'
+// 选择文件按钮
+const selectFileBtn = ref()
 
+// 上传器信息
+const uploaderInfo = reactive({
+  uploadFileList: [] as UploaderFileInfoIF[],
+  serviceIp: '192.168.5.80:8080',
+  uploadFolderPath: '/home/cxx/Downloads/uploadFiles',
+})
+
+// 上传器选项
 const options:UploaderUserOptionsIF = {
   isAutoStart: true,
   fileTypeLimit: ['deb', 'pdf', 'txt', 'log'],
-  uploadUrl: 'http://' + serviceIp + ':8080/fileUpload/chunk',
-  mergeUrl: 'http://' + serviceIp + ':8080/fileUpload/mergeFile',
+  uploadUrl: 'http://' + uploaderInfo.serviceIp + '/fileUpload/chunk',
+  mergeUrl: 'http://' + uploaderInfo.serviceIp + '/fileUpload/mergeFile',
   fileParameterName: 'multipartFile',
-  uploadFolderPath: '/home/cxx/Downloads/uploadFiles',
+  uploadFolderPath: uploaderInfo.uploadFolderPath,
 }
-
-const uploaderInfo = reactive({
-  uploadFileList: [] as UploaderFileInfoIF[],
-})
 
 const uploader = new Uploader(options)
 
 onMounted(() => {
-  uploader.assignBrowse(btn.value, false, false)
+  uploader.assignBrowse(selectFileBtn.value, false, false)
 
   // 监听文件上传事件
   uploader.on('onFileSuccess', onFileSuccess)
@@ -119,10 +135,12 @@ onUnmounted(() => {
  * @param fileName 文件名
  */
 const getFileTypeIcon = (fileName:string) => {
+  // 获取文件后缀名
   const reg = /\.[^.]+$/
   const fileType = reg.exec(fileName)?.[0].toLowerCase().slice(1)
 
   let fileTypeIcon: IconDefinition
+  // 自定义新增文件类型
   switch (fileType) {
     case 'img':
       fileTypeIcon = faImage
@@ -162,9 +180,11 @@ const onFileFailed = (uploadFileInfo: UploaderFileInfoIF) => {
  * @param uploadFileInfo 上传文件信息
  */
 const updateUploader = (uploadFileInfo: UploaderFileInfoIF) => {
+  // 找到正在上传的文件在文件列表中的索引
   const index = uploaderInfo.uploadFileList.findIndex((item) => {
     return item.uniqueIdentifier === uploadFileInfo.uniqueIdentifier
   })
+  // 更新正在上传的文件状态
   uploaderInfo.uploadFileList[index] = uploadFileInfo
 }
 

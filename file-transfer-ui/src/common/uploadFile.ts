@@ -23,16 +23,8 @@ export class UploadFile extends MyEvent {
   public state: STATUS
   // 文件块列表
   public chunks:Chunk[]
-  // 当前上传的文件块个数
-  private readonly uploadChunkNumber:number
   // 是否暂停
   public isPaused:boolean
-  // 是否错误
-  private isError:boolean
-  // 是否上传完成
-  private isAllComplete:boolean
-  // 是否中断
-  private isAborted:boolean
   // 当前上传速度 单位kb/s
   public currentSpeed:number
   // 当前进度 单位 %
@@ -54,22 +46,12 @@ export class UploadFile extends MyEvent {
     this.relativePath = file.webkitRelativePath || this.name
     this.uniqueIdentifier = ''
     this.state = STATUS.PENDING
-
     this.chunks = []
-
-    // 状态信息
     this.isPaused = false
-    this.isError = false
-    this.isAllComplete = false
-    this.isAborted = false
-
     this.currentSpeed = 0
     this.currentProgress = 0
     this.timeRemaining = 0
     this.message = ''
-
-    this.uploadChunkNumber = 0
-
     // 创建并发上传对象
     this.requestInstance = new ConRequest(this.uploaderOption.simultaneousUploads)
   }
@@ -134,7 +116,7 @@ export class UploadFile extends MyEvent {
    */
   public async concurrentUploadFile() {
     // 所有的并发请求Promise
-    const uploadPromises = []
+    const uploadPromises:Promise<any>[] = []
     // 遍历所有的文件块 得到上传文件块的Promise请求
     this.chunks.forEach((chunk) => {
       if (chunk.status !== STATUS.SUCCESS) {
@@ -142,7 +124,7 @@ export class UploadFile extends MyEvent {
         // 每个文件块的promise回调
         promise
         // 上传成功的处理 错误的处理放在Promise.all中
-          .then((response) => {
+          .then(() => {
             // 取消监听事件
             chunk.off('onChunkProgress')
             // 触发文件块上传成功事件
@@ -192,8 +174,6 @@ export class UploadFile extends MyEvent {
 
     // 判断是否全部完成
     if (this.isCompleted()) {
-      this.isAllComplete = true
-
       // 取消监听事件
       this.off('onFileProgress')
       this.off('onFileAdd')
