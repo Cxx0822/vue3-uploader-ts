@@ -122,8 +122,8 @@ public class ChunkServiceImpl implements ChunkService {
                         int index = chunkPath.lastIndexOf(fileSeparator);
                         uploadedChunkList.add(Integer.valueOf(chunkPath.substring(index + 1)));
                     });
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        } catch (Exception exception) {
+            log.error("获取文件块失败: {}", exception.getMessage());
         }
 
         return uploadedChunkList;
@@ -175,7 +175,7 @@ public class ChunkServiceImpl implements ChunkService {
             }
             return true;
         } catch (IOException exception) {
-            log.error("文件合并失败: " + exception.getMessage());
+            log.error("文件合并失败: {}", exception.getMessage());
             return false;
         }
     }

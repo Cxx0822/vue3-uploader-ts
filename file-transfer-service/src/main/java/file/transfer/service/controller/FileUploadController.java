@@ -42,7 +42,7 @@ public class FileUploadController {
             return R.ok();
 
         } catch (IOException exception) {
-            log.info("文件上传块失败: ", exception);
+            log.info("文件上传块失败: {}", exception.getMessage());
             return R.error().message("上传失败");
         }
     }

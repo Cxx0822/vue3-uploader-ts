@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="uploader-file-container">
     <el-form :inline="true" :model="uploaderInfo" class="demo-form-inline">
       <el-form-item label="服务器地址">
         <el-input v-model="uploaderInfo.serviceIp"/>
@@ -8,13 +8,11 @@
       <el-form-item label="上传文件夹路径">
         <el-input v-model="uploaderInfo.uploadFolderPath" style="width: 300px"/>
       </el-form-item>
-
-      <el-form-item>
-        <label class="uploader-btn" ref="selectFileBtn">
-          选择文件
-        </label>
-      </el-form-item>
     </el-form>
+
+    <label class="uploader-btn" ref="selectFileBtn">
+      <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+    </label>
 
     <el-table
         :data="uploaderInfo.uploadFileList"
@@ -89,6 +87,7 @@ import { UploaderFileInfoIF, UploaderUserOptionsIF } from '../types'
 import { faImage, faFilePdf, faFile } from '@fortawesome/free-solid-svg-icons'
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import { formatFileSize, formatMillisecond, formatSpeed } from '../utils'
+import { UploadFilled } from '@element-plus/icons-vue'
 
 // 选择文件按钮
 const selectFileBtn = ref()
@@ -206,12 +205,16 @@ const handlePauseOrResumeUpload = (index: number, uploaderFileInfo: UploaderFile
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .uploader-btn {
-  width: 100px;
-  border-style:solid;
-  border-width:2px;
-  border-color: #000000;
+  font-size: 40px;
+  .el-icon {
+    color: #000000;
+  }
+
+  // border-style:solid;
+  // border-width:2px;
+  // border-color: #000000;
 }
 
 table{

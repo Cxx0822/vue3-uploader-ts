@@ -32,7 +32,7 @@ public class FileDownloadController {
         if (FileUtil.fileExists(downloadFilePath)) {
             return R.ok().data("fileLength", downloadFile.length());
         } else {
-            return R.error().message("download file is not exist");
+            return R.error().message("下载文件不存在");
         }
     }
 
@@ -47,16 +47,15 @@ public class FileDownloadController {
         String downloadFilePath = downloadFolderPath + File.separator + fileName;
         File file = new File(downloadFilePath);
         if (!file.exists()) {
-            log.error("File is not exist");
+            log.error("下载文件不存在");
             return;
         }
 
         try {
             // 下载文件块
             chunkService.downloadChunk(file, request, response);
-        } catch (IOException e) {
-            log.error("download chunk error : " + e.getMessage());
-            throw new RuntimeException(e);
+        } catch (Exception exception) {
+            log.error("下载文件失败:{}", exception.getMessage());
         }
     }
 }
