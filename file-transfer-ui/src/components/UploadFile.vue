@@ -83,10 +83,8 @@
 <script setup lang="ts">
 import { Uploader } from '../common/uploader'
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
-import { UploaderFileInfoIF, UploaderUserOptionsIF } from '../types'
-import { faImage, faFilePdf, faFile } from '@fortawesome/free-solid-svg-icons'
-import { IconDefinition } from '@fortawesome/fontawesome-svg-core'
-import { formatFileSize, formatMillisecond, formatSpeed } from '../utils'
+import { IUploaderFileInfo, IUploaderUserOptions } from '@/types'
+import { getFileTypeIcon, formatFileSize, formatMillisecond, formatSpeed } from '@/utils'
 import { UploadFilled } from '@element-plus/icons-vue'
 
 // 选择文件按钮
@@ -94,24 +92,27 @@ const selectFileBtn = ref()
 
 // 上传器信息
 const uploaderInfo = reactive({
-  uploadFileList: [] as UploaderFileInfoIF[],
-  serviceIp: '192.168.5.80:8080',
-  uploadFolderPath: '/home/cxx/Downloads/uploadFiles',
+  serviceIp: 'http://192.168.5.80:8080',
+  uploadFileList: [] as IUploaderFileInfo[],
+  uploadFolderPath: '/home/cxx/Downloads/uploadFiles'
 })
 
 // 上传器选项
-const options:UploaderUserOptionsIF = {
+const options: IUploaderUserOptions = {
   isAutoStart: true,
   fileTypeLimit: ['deb', 'pdf', 'txt', 'log'],
-  uploadUrl: 'http://' + uploaderInfo.serviceIp + '/fileUpload/chunk',
-  mergeUrl: 'http://' + uploaderInfo.serviceIp + '/fileUpload/mergeFile',
+  serviceIp: uploaderInfo.serviceIp,
+  uploadUrl: '/fileUpload/chunk',
+  mergeUrl: '/fileUpload/mergeFile',
   fileParameterName: 'multipartFile',
-  uploadFolderPath: uploaderInfo.uploadFolderPath,
+  uploadFolderPath: uploaderInfo.uploadFolderPath
 }
 
+// 实例化上传器类
 const uploader = new Uploader(options)
 
 onMounted(() => {
+  // 激活上传文件按钮
   uploader.assignBrowse(selectFileBtn.value, false, false)
 
   // 监听文件上传事件
@@ -129,48 +130,23 @@ onUnmounted(() => {
   uploader.off('onUploaderProgress')
 })
 
-/**
- * 获取文件图标
- * @param fileName 文件名
- */
-const getFileTypeIcon = (fileName:string) => {
-  // 获取文件后缀名
-  const reg = /\.[^.]+$/
-  const fileType = reg.exec(fileName)?.[0].toLowerCase().slice(1)
-
-  let fileTypeIcon: IconDefinition
-  // 自定义新增文件类型
-  switch (fileType) {
-    case 'img':
-      fileTypeIcon = faImage
-      break
-    case 'pdf':
-      fileTypeIcon = faFilePdf
-      break
-    default:
-      fileTypeIcon = faFile
-      break
-  }
-  return fileTypeIcon
-}
-
 // 添加文件事件
-const onFileAdd = (uploadFileInfo: UploaderFileInfoIF) => {
+const onFileAdd = (uploadFileInfo: IUploaderFileInfo) => {
   uploaderInfo.uploadFileList.push(uploadFileInfo)
 }
 
 // 上传成功事件
-const onFileSuccess = (uploadFileInfo: UploaderFileInfoIF) => {
+const onFileSuccess = (uploadFileInfo: IUploaderFileInfo) => {
   updateUploader(uploadFileInfo)
 }
 
 // 上传中事件
-const onUploaderProgress = (uploadFileInfo: UploaderFileInfoIF) => {
+const onUploaderProgress = (uploadFileInfo: IUploaderFileInfo) => {
   updateUploader(uploadFileInfo)
 }
 
 // 上传失败事件
-const onFileFailed = (uploadFileInfo: UploaderFileInfoIF) => {
+const onFileFailed = (uploadFileInfo: IUploaderFileInfo) => {
   updateUploader(uploadFileInfo)
 }
 
@@ -178,7 +154,7 @@ const onFileFailed = (uploadFileInfo: UploaderFileInfoIF) => {
  * 更新上传器信息
  * @param uploadFileInfo 上传文件信息
  */
-const updateUploader = (uploadFileInfo: UploaderFileInfoIF) => {
+const updateUploader = (uploadFileInfo: IUploaderFileInfo) => {
   // 找到正在上传的文件在文件列表中的索引
   const index = uploaderInfo.uploadFileList.findIndex((item) => {
     return item.uniqueIdentifier === uploadFileInfo.uniqueIdentifier
@@ -188,13 +164,13 @@ const updateUploader = (uploadFileInfo: UploaderFileInfoIF) => {
 }
 
 // 取消文件上传
-const handleCancelUpload = (index: number, uploaderFileInfo: UploaderFileInfoIF) => {
+const handleCancelUpload = (index: number, uploaderFileInfo: IUploaderFileInfo) => {
   const uploaderInfoIndex = uploader.cancelUpload(uploaderFileInfo)
   uploaderInfo.uploadFileList.splice(uploaderInfoIndex, 1)
 }
 
 // 处理暂停或者取消文件上传
-const handlePauseOrResumeUpload = (index: number, uploaderFileInfo: UploaderFileInfoIF) => {
+const handlePauseOrResumeUpload = (index: number, uploaderFileInfo: IUploaderFileInfo) => {
   if (uploaderFileInfo.isPause) {
     uploaderInfo.uploadFileList[index].isPause = false
     uploader.resumeUpload(uploaderFileInfo)

@@ -1,10 +1,22 @@
 // 事件数据接口
-export interface EventDataIF {
+export interface IEventData {
     [key: string]: Function
 }
 
 // 上传器用户配置接口
-export interface UploaderUserOptionsIF {
+export interface IUploaderUserOptions {
+    // 必填项
+    // 服务器Ip
+    serviceIp: string,
+    // 上传文件块url
+    uploadUrl: string,
+    // 合并文件url
+    mergeUrl: string,
+    // 后端数据MultipartFile字段的名称
+    fileParameterName: string
+    // 文件上传地址
+    uploadFolderPath: string
+    // 可选项
     // 文件最大大小
     fileMaxSize?: number
     // 文件块大小
@@ -23,6 +35,12 @@ export interface UploaderUserOptionsIF {
     isAutoStart?: boolean
     // 自定义请求头
     headers?: {}
+}
+
+// 上传器默认配置接口
+export interface IUploaderOptions {
+    // 服务器Ip
+    serviceIp: string,
     // 上传文件块url
     uploadUrl: string,
     // 合并文件url
@@ -31,10 +49,6 @@ export interface UploaderUserOptionsIF {
     fileParameterName: string
     // 文件上传地址
     uploadFolderPath: string
-}
-
-// 上传器默认配置接口
-export interface UploaderDefaultOptionsIF {
     // 文件最大大小
     fileMaxSize: number
     // 文件块大小
@@ -52,19 +66,11 @@ export interface UploaderDefaultOptionsIF {
     // 是否自动下载
     isAutoStart: boolean
     // 自定义请求头
-    headers?: {}
-    // 上传文件块url
-    uploadUrl: string,
-    // 合并文件url
-    mergeUrl: string,
-    // 后端数据MultipartFile字段的名称
-    fileParameterName: string
-    // 文件上传地址
-    uploadFolderPath: string
+    headers: {}
 }
 
 // 上传文件信息接口
-export interface UploaderFileInfoIF {
+export interface IUploaderFileInfo {
     // 文件名称
     name:string
     // 文件大小
@@ -86,7 +92,7 @@ export interface UploaderFileInfoIF {
 }
 
 // 上传文件参数信息接口
-export interface FileParamIF {
+export interface IUploadFileParam {
     chunkNumber: number,
     chunkSize?: number,
     currentChunkSize?: number,
@@ -101,16 +107,15 @@ export interface FileParamIF {
 /**
  * 上传文件块返回结果
  */
-export interface ChunkResultTF {
+export interface IChunkResult {
     // 是否可以跳过上传
     skipUpload:boolean
-
     // 已经上传的文件块列表
     uploadedChunkList:number[]
 }
 
 // 下载器默认配置接口
-export interface DownloaderDefaultOptionsIF {
+export interface IDownloaderDefaultOptions {
     // 文件块大小
     chunkSize: number
     // 同时上传的文件块个数
@@ -131,7 +136,9 @@ export interface DownloaderDefaultOptionsIF {
     downloadFolderPath: string
 }
 
-// 文件或文件块上传状态
+/**
+ * 文件或文件块上传状态
+ */
 export const enum STATUS {
     // 等待处理
     PENDING = '文件等待上传',

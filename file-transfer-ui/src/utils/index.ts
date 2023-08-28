@@ -1,3 +1,31 @@
+import { faImage, faFilePdf, faFile } from '@fortawesome/free-solid-svg-icons'
+import { IconDefinition } from '@fortawesome/fontawesome-svg-core'
+
+/**
+ * 获取文件图标
+ * @param fileName 文件名
+ */
+export const getFileTypeIcon = (fileName: string) => {
+  // 获取文件后缀名
+  const reg = /\.[^.]+$/
+  const fileType = reg.exec(fileName)?.[0].toLowerCase().slice(1)
+
+  let fileTypeIcon: IconDefinition
+  // 自定义新增文件类型
+  switch (fileType) {
+    case 'img':
+      fileTypeIcon = faImage
+      break
+    case 'pdf':
+      fileTypeIcon = faFilePdf
+      break
+    default:
+      fileTypeIcon = faFile
+      break
+  }
+  return fileTypeIcon
+}
+
 /**
  * 格式化秒 小时:分钟:秒
  @param {number} second 传入的需要转换的并且时间单位为秒的值
@@ -19,7 +47,7 @@ export const formatMillisecond = (
   }
 
   let secondsStr = seconds.toFixed(secondPrecision)
-  if (Number.parseInt(secondsStr) <= 9) {
+  if (Number(secondsStr) <= 9) {
     secondsStr = `0${secondsStr}`
   }
   return `${hours}:${minutes}:${secondsStr}`
@@ -30,17 +58,17 @@ export const formatMillisecond = (
  * @param size 文件大小 单位B
  * @param digits 保留的小数 默认为2位
  */
-export function formatFileSize(size:number, digits:number = 2) {
+export const formatFileSize = (size: number, digits = 2) => {
   if (size < 1024) {
-    return size + 'B'
+    return `${size}B`
   } else if (size >= 1024 && size < Math.pow(1024, 2)) {
-    return parseFloat((size / 1024).toString()).toFixed(digits) + 'KB'
+    return `${parseFloat((size / 1024).toString()).toFixed(digits)}KB`
   } else if (size >= Math.pow(1024, 2) && size < Math.pow(1024, 3)) {
-    return parseFloat((size / Math.pow(1024, 2)).toString()).toFixed(digits) + 'MB'
+    return `${parseFloat((size / Math.pow(1024, 2)).toString()).toFixed(digits)}MB`
   } else if (size > Math.pow(1024, 3)) {
-    return parseFloat((size / Math.pow(1024, 3)).toString()).toFixed(digits) + 'GB'
+    return `${parseFloat((size / Math.pow(1024, 3)).toString()).toFixed(digits)}GB`
   } else {
-    return 0 + 'B'
+    return `${0}B`
   }
 }
 
@@ -49,14 +77,14 @@ export function formatFileSize(size:number, digits:number = 2) {
  * @param speed 传输速度 kb/s
  * @param digits 保留的小数 默认为2位
  */
-export function formatSpeed(speed:number, digits:number = 2) {
+export const formatSpeed = (speed: number, digits = 2) => {
   if (speed < 1024) {
-    return speed + 'Kb/s'
+    return `${speed}Kb/s`
   } else if (speed >= 1024 && speed < Math.pow(1024, 2)) {
-    return parseFloat((speed / 1024).toString()).toFixed(digits) + 'Mb/s'
+    return `${parseFloat((speed / 1024).toString()).toFixed(digits)}Mb/s`
   } else if (speed >= Math.pow(1024, 2) && speed < Math.pow(1024, 3)) {
-    return parseFloat((speed / Math.pow(1024, 2)).toString()).toFixed(digits) + 'Gb/s'
+    return `${parseFloat((speed / Math.pow(1024, 2)).toString()).toFixed(digits)}Gb/s`
   } else {
-    return 0 + 'B'
+    return `${0}B`
   }
 }

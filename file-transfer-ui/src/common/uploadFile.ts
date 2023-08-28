@@ -1,41 +1,42 @@
 import { Chunk } from './chunk'
 import { MyEvent } from './myEvent'
-import { FileParamIF, STATUS, UploaderDefaultOptionsIF, UploaderFileInfoIF } from '../types'
+import { IUploadFileParam, STATUS, IUploaderOptions, IUploaderFileInfo } from '@/types'
 import { ConRequest } from './RequestDecotration'
 import axios from 'axios'
+import { uploadChunk } from '@/api/uploadService.ts'
 
 export class UploadFile extends MyEvent {
-  // 上传器配置项
-  private readonly uploaderOption:UploaderDefaultOptionsIF
   // 文件对象
-  public file:File
+  file: File
   // 文件类型
-  public fileType:string
+  fileType: string
   // 文件名称
-  public name:string
+  name: string
   // 文件大小
-  public size:number
+  size: number
   // 文件路径
-  public relativePath:string
+  relativePath: string
   // 文件唯一标识
-  public uniqueIdentifier:string
+  uniqueIdentifier: string
   // 文件上传状态
-  public state: STATUS
+  state: STATUS
   // 文件块列表
-  public chunks:Chunk[]
+  chunks: Chunk[]
   // 是否暂停
-  public isPaused:boolean
+  isPaused: boolean
   // 当前上传速度 单位kb/s
-  public currentSpeed:number
+  currentSpeed: number
   // 当前进度 单位 %
-  public currentProgress:number
+  currentProgress: number
   // 剩余时间 单位 s
-  public timeRemaining:number
+  timeRemaining: number
   // 消息提示
-  public message:string
-  private requestInstance:ConRequest
+  message: string
+  // 上传器配置项
+  private readonly uploaderOption: IUploaderOptions
+  private requestInstance: ConRequest
 
-  constructor(file:File, uploaderOption:UploaderDefaultOptionsIF) {
+  constructor(file: File, uploaderOption: IUploaderOptions) {
     super()
     this.uploaderOption = uploaderOption
     // 文件信息
@@ -59,43 +60,32 @@ export class UploadFile extends MyEvent {
   /**
    * 判断文件是否存在 并跳过秒传
    */
-  public checkSkipUploadFile() {
-    return new Promise((resolve, reject) => {
-      const identifier = this.uniqueIdentifier
-      const filename = this.name
-      const uploadFolderPath = this.uploaderOption.uploadFolderPath
-      axios({
-        url: this.uploaderOption.uploadUrl,
-        method: 'get',
-        params: { identifier, filename, uploadFolderPath },
-      })
-        .then((response) => {
-          resolve(response)
-        })
-        .catch((error) => {
-          reject(error)
-        })
-    })
+  async checkSkipUploadFile() {
+    const identifier = this.uniqueIdentifier
+    const filename = this.name
+    const { uploadFolderPath } = this.uploaderOption
+    return await uploadChunk(this.uploaderOption.serviceIp + this.uploaderOption.uploadUrl,
+      identifier, filename, uploadFolderPath)
   }
 
   /**
    * 对文件切片 生成文件块
    */
-  public generateChunks(chunkIndex:number) {
+  generateChunks(chunkIndex: number) {
     // 文件块个数
     const chunkNumber = Math.max(Math.ceil(this.size / this.uploaderOption.chunkSize), 1)
 
     // 生成所有的文件块
     for (let offset = 0; offset < chunkNumber; offset++) {
       // 文件参数信息
-      const fileParam:FileParamIF = {
+      const fileParam: IUploadFileParam = {
         chunkNumber: offset + 1,
         totalSize: this.size,
         identifier: this.uniqueIdentifier,
         filename: this.name,
         fileType: this.fileType,
         relativePath: this.relativePath,
-        totalChunks: chunkNumber,
+        totalChunks: chunkNumber
       }
 
       // 文件块对象
@@ -114,9 +104,9 @@ export class UploadFile extends MyEvent {
   /**
    * 并发上传文件块
    */
-  public async concurrentUploadFile() {
+  async concurrentUploadFile() {
     // 所有的并发请求Promise
-    const uploadPromises:Promise<any>[] = []
+    const uploadPromises: Array<Promise<any>> = []
     // 遍历所有的文件块 得到上传文件块的Promise请求
     this.chunks.forEach((chunk) => {
       if (chunk.status !== STATUS.SUCCESS) {
@@ -140,6 +130,46 @@ export class UploadFile extends MyEvent {
   }
 
   /**
+   * 暂停文件上传
+   */
+  pauseUploadFile() {
+    this.isPaused = true
+    this.requestInstance.pauseRequesting()
+  }
+
+  /**
+   * 恢复文件上传
+   */
+  resumeUploadFile() {
+    this.isPaused = false
+    this.requestInstance.resumeRequesting()
+  }
+
+  /**
+   * 取消文件上传
+   */
+  cancelUploadFile() {
+    this.chunks.forEach((chunk) => {
+      if (chunk.status === STATUS.PROGRESS) {
+        chunk.cancelUploadChunk()
+      }
+    })
+  }
+
+  /**
+   * 删除文件块信息
+   */
+  deleteUploadChunk() {
+    const identifier = this.uniqueIdentifier
+    const { uploadFolderPath } = this.uploaderOption
+    axios({
+      url: this.uploaderOption.uploadUrl,
+      method: 'delete',
+      params: { identifier, uploadFolderPath }
+    })
+  }
+
+  /**
    * 文件块上传中事件 计算当前速度 进度 剩余时间等
    */
   private chunkProgressEvent = () => {
@@ -156,7 +186,7 @@ export class UploadFile extends MyEvent {
    * 文件块上传成功事件
    */
   private chunkSuccessEvent = () => {
-    const uploaderFileInfoIF:UploaderFileInfoIF = {
+    const uploaderFileInfoIF: IUploaderFileInfo = {
       name: this.name,
       size: this.size,
       uniqueIdentifier: this.uniqueIdentifier,
@@ -165,7 +195,7 @@ export class UploadFile extends MyEvent {
       currentSpeed: this.currentSpeed,
       timeRemaining: this.timeRemaining,
       isPause: this.isPaused,
-      message: this.message,
+      message: this.message
     }
 
     // 触发文件上传中事件 并将uploadFileInfo信息返回
@@ -177,7 +207,6 @@ export class UploadFile extends MyEvent {
       // 取消监听事件
       this.off('onFileProgress')
       this.off('onFileAdd')
-      return
     }
   }
 
@@ -185,11 +214,11 @@ export class UploadFile extends MyEvent {
    * 计算已上传文件的大小
    * @returns 已上传文件大小
    */
-  private sizeUploaded():number {
+  private sizeUploaded(): number {
     let size = 0
 
     // 遍历所有文件块 计算已上传文件的大小
-    this.chunks.forEach((chunk:Chunk) => {
+    this.chunks.forEach((chunk: Chunk) => {
       size += chunk.sizeUploaded()
     })
 
@@ -200,19 +229,18 @@ export class UploadFile extends MyEvent {
    * 判断文件是否上传完成
    * @returns 是否全部完成
    */
-  private isCompleted():boolean {
+  private isCompleted(): boolean {
     // 遍历所有文件块 判断是否都上传完成
-    return this.chunks.every(chunk =>
-      chunk.status === STATUS.SUCCESS
-    )
+    return this.chunks.every((chunk) =>
+      chunk.status === STATUS.SUCCESS)
   }
 
   /**
    * 获取文件上传进度
    * @returns 当前文件上传进度
    */
-  private uploadFileProgress():number {
-    let fileProgress:number = 0
+  private uploadFileProgress(): number {
+    let fileProgress = 0
 
     // 遍历所有文件块 计算当前上传进度
     this.chunks.forEach((chunk) => {
@@ -226,7 +254,7 @@ export class UploadFile extends MyEvent {
    * 计算当前文件传输速度 单位kb/s
    * 计算方法：当前正在上传文件块的平均传输速度
    */
-  private measureSpeed():number {
+  private measureSpeed(): number {
     let isUploadChunkCount = 0
     let fileSpeed = 0
     this.chunks.forEach((chunk) => {
@@ -245,46 +273,5 @@ export class UploadFile extends MyEvent {
    */
   private calTimeRemaining() {
     return Math.round(((this.size - this.sizeUploaded()) / this.currentSpeed) / 1000)
-  }
-
-  /**
-   * 暂停文件上传
-   */
-  public pauseUploadFile() {
-    this.isPaused = true
-    this.requestInstance.pauseRequesting()
-  }
-
-  /**
-   * 恢复文件上传
-   */
-  public resumeUploadFile() {
-    this.isPaused = false
-    this.requestInstance.resumeRequesting()
-  }
-
-  /**
-   * 取消文件上传
-   */
-  public cancelUploadFile() {
-    this.chunks.forEach((chunk) => {
-      if (chunk.status === STATUS.PROGRESS) {
-        chunk.cancelUploadChunk()
-        return
-      }
-    })
-  }
-
-  /**
-   * 删除文件块信息
-   */
-  public deleteUploadChunk() {
-    const identifier = this.uniqueIdentifier
-    const uploadFolderPath = this.uploaderOption.uploadFolderPath
-    axios({
-      url: this.uploaderOption.uploadUrl,
-      method: 'delete',
-      params: { identifier, uploadFolderPath },
-    })
   }
 }

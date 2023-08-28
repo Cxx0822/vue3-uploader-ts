@@ -1,15 +1,15 @@
 import axios from 'axios'
-import { DownloaderDefaultOptionsIF } from '../types'
+import { IDownloaderDefaultOptions } from '@/types'
 
 export class DownloadFile {
   // 下载器配置项
-  private readonly downloadOption:DownloaderDefaultOptionsIF
-  private chunkList:Blob[]
-  private currentChunkIndex:number
-  private totalChunkCount:number
-  private currentProgress:number
+  private readonly downloadOption: IDownloaderDefaultOptions
+  private chunkList: Blob[]
+  private readonly currentChunkIndex: number
+  private totalChunkCount: number
+  private currentProgress: number
 
-  constructor(downloadOption:DownloaderDefaultOptionsIF) {
+  constructor(downloadOption: IDownloaderDefaultOptions) {
     this.downloadOption = downloadOption
 
     this.chunkList = []
@@ -20,13 +20,13 @@ export class DownloadFile {
 
   getDownloadFileInfo() {
     return new Promise((resolve, reject) => {
-      const downloadFolderPath = this.downloadOption.downloadFolderPath
-      const fileName = this.downloadOption.fileName
+      const { downloadFolderPath } = this.downloadOption
+      const { fileName } = this.downloadOption
       axios({
         // url: 'http://127.0.0.1:8080/fileDownload/getFileInfo',
         url: this.downloadOption.getFileInfoUrl,
         method: 'get',
-        params: { downloadFolderPath, fileName },
+        params: { downloadFolderPath, fileName }
       }).then((response) => {
         resolve(response)
       })
@@ -37,7 +37,7 @@ export class DownloadFile {
   }
 
   startDownload() {
-    this.getDownloadFileInfo().then((response:any) => {
+    this.getDownloadFileInfo().then((response: any) => {
       const filesSize = response.data.data.fileLength
       // 计算总共页数，向上取整
       this.totalChunkCount = Math.ceil(filesSize / this.downloadOption.chunkSize)
@@ -47,10 +47,10 @@ export class DownloadFile {
     })
   }
 
-  downloadChunk = (chunkIndex:number) => {
+  downloadChunk = (chunkIndex: number) => {
     const headers = this.getChunkRange(chunkIndex)
-    const downloadFolderPath = this.downloadOption.downloadFolderPath
-    const fileName = this.downloadOption.fileName
+    const { downloadFolderPath } = this.downloadOption
+    const { fileName } = this.downloadOption
     // @ts-ignore
     axios({
       // url: 'http://127.0.0.1:8080/fileDownload/chunk',
@@ -58,7 +58,7 @@ export class DownloadFile {
       method: 'get',
       params: { downloadFolderPath, fileName },
       headers,
-      responseType: 'blob',
+      responseType: 'blob'
     })
       .then((response) => {
         if (response.status === 200 || response.status === 206) {
@@ -71,7 +71,6 @@ export class DownloadFile {
             this.currentChunkIndex++
             // 计算下载百分比  当前下载的片数/总片数
             this.currentProgress = Number((this.chunkList.length / this.totalChunkCount) * 100)
-            console.log(this.currentProgress)
             this.downloadChunk(this.currentChunkIndex)
 
             return
@@ -85,7 +84,7 @@ export class DownloadFile {
       })
   }
 
-  getChunkRange(chunkIndex:number):Object {
+  getChunkRange(chunkIndex: number): Object {
     // const range = `${chunkIndex * chunkSize}-${(chunkIndex + 1) * chunkSize}`
 
     let range
@@ -97,11 +96,11 @@ export class DownloadFile {
     }
 
     return {
-      range: 'bytes=' + range,
+      range: `bytes=${range}`
     }
   }
 
-  downloadFileByBrowser(chunkList:Blob[], fileName:string) {
+  downloadFileByBrowser(chunkList: Blob[], fileName: string) {
     // 创建Blob对象并下载文件
     const blob = new Blob(chunkList)
     const link = document.createElement('a') // 创建a标签

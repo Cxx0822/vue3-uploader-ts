@@ -1,5 +1,7 @@
 // main.ts
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+
 // 引入Vue App
 import App from './App.vue'
 
@@ -17,6 +19,8 @@ const app = createApp(App)
 
 // 使用Element UI Plus
 app.use(ElementPlus, { locale })
+// 使用pinia
+app.use(createPinia())
 // 使用Font-Awesome
 app.component('font-awesome-icon', FontAwesomeIcon)
 // 挂载到根组件上
