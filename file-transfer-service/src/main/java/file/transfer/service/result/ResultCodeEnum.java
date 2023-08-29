@@ -3,6 +3,10 @@ package file.transfer.service.result;
 import lombok.Getter;
 import lombok.ToString;
 
+/**
+ * @author Cxx
+ */
+
 @Getter
 @ToString
 public enum ResultCodeEnum {

@@ -1,28 +1,31 @@
 package file.transfer.service.controller;
 
-import file.transfer.service.result.R;
+import file.transfer.service.result.AxiosResult;
 import file.transfer.service.service.ChunkService;
 import file.transfer.service.utils.FileUtil;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 
+/**
+ * @author Cxx
+ */
 @RestController
 @RequestMapping("/fileDownload")
 @Slf4j
 public class FileDownloadController {
-    @Autowired
+    @Resource
     private ChunkService chunkService;
 
     @ApiOperation("获取下载文件信息")
     @GetMapping("/getFileInfo")
-    public R getDownloadFileInfo(@RequestParam("downloadFolderPath") String downloadFolderPath,
-                                 @RequestParam("fileName") String fileName) {
+    public AxiosResult getDownloadFileInfo(@RequestParam("downloadFolderPath") String downloadFolderPath,
+                                           @RequestParam("fileName") String fileName) {
 
         // 获取文件路径
         String downloadFilePath = downloadFolderPath + File.separator + fileName;
@@ -30,9 +33,9 @@ public class FileDownloadController {
 
         // 判断文件夹是否存在
         if (FileUtil.fileExists(downloadFilePath)) {
-            return R.ok().data("fileLength", downloadFile.length());
+            return AxiosResult.ok().data("fileLength", downloadFile.length());
         } else {
-            return R.error().message("下载文件不存在");
+            return AxiosResult.error().message("下载文件不存在");
         }
     }
 

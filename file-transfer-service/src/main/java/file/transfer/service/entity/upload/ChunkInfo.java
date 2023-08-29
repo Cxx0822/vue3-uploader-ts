@@ -3,6 +3,9 @@ package file.transfer.service.entity.upload;
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * @author Cxx
+ */
 @Data
 public class ChunkInfo {
     private String id;

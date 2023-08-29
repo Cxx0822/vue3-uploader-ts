@@ -19,6 +19,9 @@ import java.util.stream.Stream;
 
 import static file.transfer.service.utils.FileUtil.fileExists;
 
+/**
+ * @author Cxx
+ */
 @Service
 @Slf4j
 public class ChunkServiceImpl implements ChunkService {

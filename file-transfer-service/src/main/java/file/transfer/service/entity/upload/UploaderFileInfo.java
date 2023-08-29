@@ -2,6 +2,9 @@ package file.transfer.service.entity.upload;
 
 import lombok.Data;
 
+/**
+ * @author Cxx
+ */
 @Data
 public class UploaderFileInfo {
     //附件编号

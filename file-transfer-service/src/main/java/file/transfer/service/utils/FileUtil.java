@@ -7,9 +7,12 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.Objects;
 
+/**
+ * @author Cxx
+ */
 @Slf4j
 public class FileUtil {
-    private static final String fileSeparator = "_";
+    private static final String FILE_SEPARATOR = "_";
 
     /**
      * 获取文件路径
@@ -31,7 +34,7 @@ public class FileUtil {
             }
         }
 
-        return filePath + File.separator + chunkInfo.getFilename() + fileSeparator + chunkInfo.getChunkNumber();
+        return filePath + File.separator + chunkInfo.getFilename() + FILE_SEPARATOR + chunkInfo.getChunkNumber();
     }
 
     /**
@@ -71,9 +74,13 @@ public class FileUtil {
             else {
                 flag = deleteDirectory(file.getAbsolutePath());
             }
-            if (!flag) break;
+            if (!flag) {
+                break;
+            }
         }
-        if (!flag) return false;
+        if (!flag) {
+            return false;
+        }
 
         log.info("文件删除成功");
         // 删除当前目录

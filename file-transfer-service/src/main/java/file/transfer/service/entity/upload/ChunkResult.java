@@ -4,6 +4,9 @@ import lombok.Data;
 
 import java.util.List;
 
+/**
+ * @author Cxx
+ */
 @Data
 public class ChunkResult {
     //是否跳过上传（已上传的可以直接跳过，达到秒传的效果）
