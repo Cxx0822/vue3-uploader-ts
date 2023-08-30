@@ -5,7 +5,7 @@ const service = axios.create({
   // URL地址
   // baseURL: 'http://127.0.0.1:8080',
   // 连接时间
-  timeout: 5000,
+  timeout: 5000
 })
 
 // 请求拦截器
@@ -35,7 +35,7 @@ service.interceptors.response.use(
       ElMessage({
         message: res.message || 'Error',
         type: 'error',
-        duration: 5 * 1000,
+        duration: 5 * 1000
       })
       return Promise.reject(new Error(res.message || 'Error'))
     } else {
@@ -47,7 +47,7 @@ service.interceptors.response.use(
     ElMessage({
       message: error.message,
       type: 'error',
-      duration: 5 * 1000,
+      duration: 5 * 1000
     })
     return Promise.reject(error)
   }

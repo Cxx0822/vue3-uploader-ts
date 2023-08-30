@@ -2,8 +2,7 @@ import { Chunk } from './chunk'
 import { MyEvent } from './myEvent'
 import { IUploadFileParam, STATUS, IUploaderOptions, IUploaderFileInfo } from '@/types'
 import { ConRequest } from './RequestDecotration'
-import axios from 'axios'
-import { uploadChunk } from '@/api/uploadService.ts'
+import { deleteChunk, uploadChunk } from '@/api/uploadService.ts'
 
 export class UploadFile extends MyEvent {
   // 文件对象
@@ -106,14 +105,14 @@ export class UploadFile extends MyEvent {
    */
   async concurrentUploadFile() {
     // 所有的并发请求Promise
-    const uploadPromises: Array<Promise<any>> = []
+    const uploadPromiseList: Array<Promise<any>> = []
     // 遍历所有的文件块 得到上传文件块的Promise请求
     this.chunks.forEach((chunk) => {
       if (chunk.status !== STATUS.SUCCESS) {
         const promise = this.requestInstance.request(chunk)
         // 每个文件块的promise回调
         promise
-        // 上传成功的处理 错误的处理放在Promise.all中
+          // 上传成功的处理 错误的处理放在Promise.all中
           .then(() => {
             // 取消监听事件
             chunk.off('onChunkProgress')
@@ -121,12 +120,12 @@ export class UploadFile extends MyEvent {
             this.chunkSuccessEvent()
           })
 
-        uploadPromises.push(promise)
+        uploadPromiseList.push(promise)
       }
     })
 
     // 开启所有的上传请求
-    await Promise.all(uploadPromises)
+    await Promise.all(uploadPromiseList)
   }
 
   /**
@@ -162,11 +161,8 @@ export class UploadFile extends MyEvent {
   deleteUploadChunk() {
     const identifier = this.uniqueIdentifier
     const { uploadFolderPath } = this.uploaderOption
-    axios({
-      url: this.uploaderOption.uploadUrl,
-      method: 'delete',
-      params: { identifier, uploadFolderPath }
-    })
+    deleteChunk(this.uploaderOption.serviceIp + this.uploaderOption.uploadUrl,
+      identifier, uploadFolderPath).then()
   }
 
   /**

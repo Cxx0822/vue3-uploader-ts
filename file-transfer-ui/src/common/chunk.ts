@@ -137,7 +137,7 @@ export class Chunk extends MyEvent {
       // @ts-ignore
       axios({
         method: 'post',
-        url: this.uploaderOption.uploadUrl,
+        url: this.uploaderOption.serviceIp + this.uploaderOption.uploadUrl,
         data,
         params: { uploadFolderPath },
         signal: this.controller.signal,

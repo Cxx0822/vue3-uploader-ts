@@ -62,7 +62,7 @@
 
       <el-table-column label="当前状态" align="center">
         <template #default="scope">
-          <el-text>{{ scope.row.state + " " + scope.row.message }}</el-text>
+          <el-text>{{ scope.row.message }}</el-text>
         </template>
       </el-table-column>
 
@@ -92,15 +92,15 @@ const selectFileBtn = ref()
 
 // 上传器信息
 const uploaderInfo = reactive({
-  serviceIp: 'http://192.168.5.80:8080',
+  serviceIp: 'http://192.168.31.196:8081',
   uploadFileList: [] as IUploaderFileInfo[],
-  uploadFolderPath: '/home/cxx/Downloads/uploadFiles'
+  uploadFolderPath: 'D:\\temp'
 })
 
 // 上传器选项
 const options: IUploaderUserOptions = {
   isAutoStart: true,
-  fileTypeLimit: ['deb', 'pdf', 'txt', 'log'],
+  fileTypeLimit: ['deb', 'pdf', 'txt', 'log', 'zip'],
   serviceIp: uploaderInfo.serviceIp,
   uploadUrl: '/fileUpload/chunk',
   mergeUrl: '/fileUpload/mergeFile',

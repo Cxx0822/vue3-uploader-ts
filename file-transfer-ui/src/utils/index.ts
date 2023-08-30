@@ -1,5 +1,6 @@
 import { faImage, faFilePdf, faFile } from '@fortawesome/free-solid-svg-icons'
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core'
+import * as SparkMD5 from 'spark-md5'
 
 /**
  * 获取文件图标
@@ -87,4 +88,54 @@ export const formatSpeed = (speed: number, digits = 2) => {
   } else {
     return `${0}B`
   }
+}
+
+/**
+ * 获取文件的唯一标识
+ * @param file 文件
+ * @param chunkSize 文件大小
+ * @returns 文件的唯一标识
+ */
+export const generateUniqueIdentifier = async (file: File, chunkSize: number) => {
+  // 采用MD5算法生成校验字符串
+  let spark = new SparkMD5.ArrayBuffer()
+  const chunkCount = Math.ceil(file.size / chunkSize)
+
+  // 如果传入的是大文件 则MD5计算时间较长
+  // 因此采用第1个文件块和最后一个文件块的方式组合计算MD5 确保文件唯一
+  // TODO 采用此方法大文件计算MD5还是比较慢 需要优化
+  const chunkBytes = file.slice(0, Math.min(chunkSize, file.size))
+  spark = await getFileSparkMD5(spark, chunkBytes)
+  // 如果有超过2个文件块
+  if (chunkCount > 1) {
+    const endByte = Math.min(chunkSize * (chunkCount - 1), file.size)
+    spark = await getFileSparkMD5(spark, file.slice(chunkSize, endByte))
+  }
+
+  // 返回计算的值
+  return spark.end()
+}
+
+/**
+ * 获取文件块的MD5校验值
+ * @param spark SparkMD5实例
+ * @param chunkBytes 文件块字节
+ */
+const getFileSparkMD5 = (spark: SparkMD5.ArrayBuffer, chunkBytes: Blob) => {
+  return new Promise<SparkMD5.ArrayBuffer>((resolve, reject) => {
+    const fileReader = new FileReader()
+    fileReader.readAsArrayBuffer(chunkBytes)
+
+    // 加载文件
+    fileReader.onload = (event: ProgressEvent) => {
+      // 增加MD5信息
+      spark.append((event.target as any).result)
+      resolve(spark)
+    }
+
+    // 加载文件
+    fileReader.onerror = () => {
+      reject(new Error('读取文件失败'))
+    }
+  })
 }
