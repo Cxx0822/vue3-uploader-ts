@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { Uploader } from '../common/uploader'
+import { Uploader } from '@/common/uploader'
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { IUploaderFileInfo, IUploaderUserOptions } from '@/types'
 import { getFileTypeIcon, formatFileSize, formatMillisecond, formatSpeed } from '@/utils'
@@ -92,9 +92,9 @@ const selectFileBtn = ref()
 
 // 上传器信息
 const uploaderInfo = reactive({
-  serviceIp: 'http://192.168.31.196:8081',
+  serviceIp: 'http://192.168.5.90:8080',
   uploadFileList: [] as IUploaderFileInfo[],
-  uploadFolderPath: 'D:\\temp'
+  uploadFolderPath: '/home/frank/Downloads/temp'
 })
 
 // 上传器选项

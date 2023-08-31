@@ -12,23 +12,33 @@ import { generateUniqueIdentifier } from '@//utils'
 export class Uploader extends MyEvent {
   // 上传器配置项
   uploaderOptions: IUploaderOptions
+  // 上传文件唯一标识列表
+  uploadFileUniqueIdentifierList: string[]
   // 上传文件列表
   uploadFileQueue: UploadFileQueue<UploadFile>
   // 当前上传文件
   currentUploadFile: UploadFile
+  // 新选择的文件
+  newUploadFile: UploadFile
   // 上传文件消息
   uploadFileMessage: string
+  // 是否正在上传文件
+  hasUploadingFile: boolean
 
   constructor(options: IUploaderUserOptions) {
     super()
     // 合并默认值配置和自定义配置
     this.uploaderOptions = Object.assign(optionsDefaults, options)
     this.eventData = {}
+    this.uploadFileUniqueIdentifierList = []
     // 上传文件列表
     this.uploadFileQueue = new UploadFileQueue()
     // @ts-ignore
     this.currentUploadFile = null
+    // @ts-ignore
+    this.newUploadFile = null
     this.uploadFileMessage = ''
+    this.hasUploadingFile = false
   }
 
   /**
@@ -51,6 +61,8 @@ export class Uploader extends MyEvent {
       // 如果不是input类型 则创建input元素
       inputElement = document.createElement('input')
       inputElement.setAttribute('type', 'file')
+      // 支持多选文件
+      inputElement.setAttribute('multiple', 'multiple')
       inputElement.style.visibility = 'hidden'
       inputElement.style.position = 'absolute'
       inputElement.style.width = '1px'
@@ -72,12 +84,20 @@ export class Uploader extends MyEvent {
     // })
 
     // 监听选择文件事件
-    inputElement.addEventListener('change', (event: Event) => {
+    inputElement.addEventListener('change', async (event: Event) => {
       const htmlInputElement = event.target as HTMLInputElement
 
       // 如果选择了文件 则将其加入到上传文件列表中
       if (htmlInputElement.value && htmlInputElement.files !== null) {
-        this.addUploadFiles(htmlInputElement.files)
+        await this.addUploadFiles(htmlInputElement.files)
+
+        // 如果需要自动上传并且当前没有正在上传的文件 则开始上传
+        if (!this.hasUploadingFile
+          && this.uploaderOptions.isAutoStart
+          && this.uploadFileQueue.getAll().length > 0) {
+          this.startUploadFile()
+        }
+
         htmlInputElement.value = ''
       }
     }, false)
@@ -87,60 +107,68 @@ export class Uploader extends MyEvent {
    * 增加上传文件
    * @param fileList 文件列表
    */
-  addUploadFiles(fileList: FileList) {
-    // 处理每个选择的文件
-    Array.from(fileList).forEach(async (file: File) => {
+  async addUploadFiles(fileList: FileList) {
+    const fileListArray = Array.from(fileList)
+
+    // 不能在foreach等带返回值的遍历语法中使用异步！
+    // foreach等都是同步的 用普通的for循环即可
+    for (let i = 0; i < fileListArray.length; i++) {
       // 生成UploadFile对象
-      this.currentUploadFile = new UploadFile(file, this.uploaderOptions)
+      this.newUploadFile = new UploadFile(fileListArray[i], this.uploaderOptions)
 
       // 预处理上传文件
-      await this.preprocessUploadFile(file)
-
-      // 文件校验
-      if (this.checkUploadFile(file)) {
-        // 判断文件是否在上传中
-        if (this.checkIsUniqueIdentifier()) {
-          // 添加至队列中
-          this.insertQueue(this.currentUploadFile)
-          this.triggerUploadFileEvent('onUploaderProgress', '文件添加至上传队列中')
-
-          // 如果需要自动上传并且当前没有正在上传的文件 则开始上传
-          if (this.uploaderOptions.isAutoStart && this.uploadFileQueue.size() === 1) {
-            this.startUploadFile()
+      await this.preprocessUploadFile(fileListArray[i])
+        .then(() => {
+          // 文件校验
+          if (this.checkUploadFile(fileListArray[i])) {
+            // 判断文件是否在上传中
+            if (this.checkIsUniqueIdentifier()) {
+              // 添加至文件唯一标识列表中
+              this.uploadFileUniqueIdentifierList.push(this.newUploadFile.uniqueIdentifier)
+              // 添加至队列中
+              this.insertQueue()
+              this.triggerUploadFileEvent('onUploaderProgress', this.newUploadFile, '文件添加至上传队列中')
+            } else {
+              // 触发文件已经在上传列表中事件
+              this.triggerUploadFileEvent('onFileSuccess', this.newUploadFile, '文件已经在上传列表中')
+            }
+          } else {
+            // 触发文件增加事件
+            this.trigger('onFileAdd', this.getUploaderFileInfo(this.newUploadFile))
+            this.triggerUploadFileEvent('onFileFailed', this.newUploadFile, this.uploadFileMessage)
           }
-        } else {
-          // 触发文件已经在上传列表中事件
-          this.triggerUploadFileEvent('onFileSuccess', '文件已经在上传列表中')
-        }
-      } else {
-        // 触发文件增加事件
-        this.trigger('onFileAdd', this.getUploaderFileInfo())
-        this.triggerUploadFileEvent('onFileFailed', this.uploadFileMessage)
-      }
-    })
+        })
+        .catch(() => {
+          this.uploadFileMessage = '预处理错误'
+          this.triggerUploadFileEvent('onFileFailed', this.newUploadFile, this.uploadFileMessage)
+        })
+    }
   }
 
   /**
    * 开始上传文件块
    */
   startUploadFile() {
-    this.triggerUploadFileEvent('onUploaderProgress', '准备上传文件')
+    this.hasUploadingFile = true
+    // console.log(this.getCurrentUploadFile())
+    this.currentUploadFile = this.getCurrentUploadFile()
+    this.triggerUploadFileEvent('onUploaderProgress', this.currentUploadFile, '准备上传文件')
 
     // 判断是否需要跳过上传 即服务器是否存在文件
     this.currentUploadFile.checkSkipUploadFile()
       .then((response) => {
         const { chunkResult } = response.data
         if (chunkResult.skipUpload) {
-          this.triggerUploadFileEvent('onFileSuccess', '文件已经存在服务器中')
+          this.triggerUploadFileEvent('onFileSuccess', this.currentUploadFile, '文件已经存在服务器中')
         } else {
-          this.triggerUploadFileEvent('onUploaderProgress', '上传文件块中')
+          this.triggerUploadFileEvent('onUploaderProgress', this.currentUploadFile, '上传文件块中')
 
           // 上传文件块
           this.uploadChunkInfo(chunkResult.uploadedChunkList.length)
         }
       })
       .catch(() => {
-        this.triggerUploadFileEvent('onFileFailed', '服务器连接错误')
+        this.triggerUploadFileEvent('onFileFailed', this.currentUploadFile, '服务器连接错误')
       })
   }
 
@@ -180,18 +208,17 @@ export class Uploader extends MyEvent {
 
   /**
    * 将上传文件添加至队列中
-   * @param uploadFile 上传文件
    */
-  private insertQueue(uploadFile: UploadFile) {
-    this.uploadFileQueue.insertQueue(uploadFile)
+  private insertQueue() {
+    this.uploadFileQueue.insertQueue(this.newUploadFile)
 
     // 绑定监听事件
-    uploadFile.on('onFileProgress', () => {
+    this.uploadFileQueue.tail().on('onFileProgress', () => {
       // 触发上传器上传中事件
-      this.trigger('onUploaderProgress', this.getUploaderFileInfo())
+      this.trigger('onUploaderProgress', this.getUploaderFileInfo(this.newUploadFile))
     })
 
-    this.trigger('onFileAdd', this.getUploaderFileInfo())
+    this.trigger('onFileAdd', this.getUploaderFileInfo(this.newUploadFile))
   }
 
   /**
@@ -206,13 +233,13 @@ export class Uploader extends MyEvent {
    * @param file 需要上传的文件
    */
   private async preprocessUploadFile(file: File) {
-    this.triggerUploadFileEvent('onUploaderProgress', '文件预处理中')
+    this.triggerUploadFileEvent('onUploaderProgress', this.newUploadFile, '文件预处理中')
 
     // 设置UploadFile的唯一标识
     const { chunkSize } = this.uploaderOptions
-    this.currentUploadFile.uniqueIdentifier = await generateUniqueIdentifier(file, chunkSize)
+    this.newUploadFile.uniqueIdentifier = await generateUniqueIdentifier(file, chunkSize)
     // 设置UploadFile初始暂停状态
-    this.currentUploadFile.isPaused = !this.uploaderOptions.isAutoStart
+    this.newUploadFile.isPaused = !this.uploaderOptions.isAutoStart
   }
 
   /**
@@ -235,7 +262,7 @@ export class Uploader extends MyEvent {
       return isInclude
     } else {
       this.uploadFileMessage = '文件校验成功'
-      this.trigger('onUploaderProgress', this.getUploaderFileInfo())
+      this.trigger('onUploaderProgress', this.getUploaderFileInfo(this.newUploadFile))
       return true
     }
   }
@@ -246,8 +273,8 @@ export class Uploader extends MyEvent {
   private checkIsUniqueIdentifier(): boolean {
     // 防止多次上传同一个文件
     // 如果每个文件的标识都不等于该标识 则认为该文件不在上传列表中
-    return this.uploadFileQueue.getAll().every((item) => {
-      return item.uniqueIdentifier !== this.currentUploadFile.uniqueIdentifier
+    return this.uploadFileUniqueIdentifierList.every((item) => {
+      return item !== this.newUploadFile.uniqueIdentifier
     })
   }
 
@@ -262,21 +289,21 @@ export class Uploader extends MyEvent {
     this.currentUploadFile.concurrentUploadFile()
       // 上传成功
       .then(() => {
-        this.triggerUploadFileEvent('onUploaderProgress', '开始合并文件')
+        this.triggerUploadFileEvent('onUploaderProgress', this.currentUploadFile, '开始合并文件')
 
         // 合并文件
         this.mergeUploadFile(this.currentUploadFile)
           .then(() => {
-            this.triggerUploadFileEvent('onFileSuccess', '上传文件成功')
+            this.triggerUploadFileEvent('onFileSuccess', this.currentUploadFile, '上传文件成功')
           })
           .catch(() => {
             // 触发上传器上传失败事件
-            this.triggerUploadFileEvent('onFileFailed', '合并文件错误')
+            this.triggerUploadFileEvent('onFileFailed', this.currentUploadFile, '合并文件错误')
           })
       })
       // 上传失败
       .catch(() => {
-        this.triggerUploadFileEvent('onFileFailed', '上传文件块错误')
+        this.triggerUploadFileEvent('onFileFailed', this.currentUploadFile, '上传文件块错误')
       })
   }
 
@@ -302,16 +329,16 @@ export class Uploader extends MyEvent {
   /**
    * 获取上传文件信息
    */
-  private getUploaderFileInfo(): IUploaderFileInfo {
+  private getUploaderFileInfo(uploadFile: UploadFile): IUploaderFileInfo {
     return {
-      name: this.currentUploadFile.name,
-      size: this.currentUploadFile.size,
-      uniqueIdentifier: this.currentUploadFile.uniqueIdentifier,
-      state: this.currentUploadFile.state,
-      currentProgress: this.currentUploadFile.currentProgress,
-      currentSpeed: this.currentUploadFile.currentSpeed,
-      timeRemaining: this.currentUploadFile.timeRemaining,
-      isPause: this.currentUploadFile.isPaused,
+      name: uploadFile.name,
+      size: uploadFile.size,
+      uniqueIdentifier: uploadFile.uniqueIdentifier,
+      state: uploadFile.state,
+      currentProgress: uploadFile.currentProgress,
+      currentSpeed: uploadFile.currentSpeed,
+      timeRemaining: uploadFile.timeRemaining,
+      isPause: uploadFile.isPaused,
       message: this.uploadFileMessage
     }
   }
@@ -319,21 +346,22 @@ export class Uploader extends MyEvent {
   /**
    * 触发上传文件事件
    * @param triggerType 触发类型
+   * @param uploadFile 上传文件
    * @param message 消息
    */
-  private triggerUploadFileEvent(triggerType: string, message: string) {
+  private triggerUploadFileEvent(triggerType: string, uploadFile: UploadFile, message: string) {
     this.uploadFileMessage = message as string
 
     switch (triggerType) {
       case 'onUploaderProgress':
-        this.trigger('onUploaderProgress', this.getUploaderFileInfo())
+        this.trigger('onUploaderProgress', this.getUploaderFileInfo(uploadFile))
         break
       case 'onFileSuccess':
-        this.currentUploadFile.state = STATUS.SUCCESS
-        this.currentUploadFile.currentProgress = 100
+        uploadFile.state = STATUS.SUCCESS
+        uploadFile.currentProgress = 100
         break
       case 'onFileFailed':
-        this.currentUploadFile.state = STATUS.ERROR
+        uploadFile.state = STATUS.ERROR
         break
       default:
         break
@@ -343,14 +371,17 @@ export class Uploader extends MyEvent {
       return
     }
 
-    this.trigger(triggerType, this.getUploaderFileInfo())
+    this.trigger(triggerType, uploadFile)
     this.uploadFileQueue.deleteQueue()
 
     // 如果当前上传队列中存在文件 则出列并上传队首
-    if (this.uploadFileQueue.size() > 1) {
-      this.uploadFileQueue.deleteQueue()
-      this.currentUploadFile = this.getCurrentUploadFile()
+    if (this.uploadFileQueue.size() > 0) {
+      // this.uploadFileQueue.deleteQueue()
+      // this.currentUploadFile = this.getCurrentUploadFile()
       this.startUploadFile()
+    } else {
+      // 全部上传结束
+      this.hasUploadingFile = false
     }
   }
 }

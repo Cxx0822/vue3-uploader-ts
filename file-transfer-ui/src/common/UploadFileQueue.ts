@@ -23,6 +23,13 @@ export class UploadFileQueue<T> {
   peek() {
     return this.item[0]
   }
+
+  /**
+   * 返回队尾
+   */
+  tail() {
+    return this.item[this.item.length - 1]
+  }
   /**
    * 返回整个队列
    */
