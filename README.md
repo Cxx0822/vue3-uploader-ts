@@ -34,14 +34,14 @@
 
 # 文件上传模块
 ## 业务流程
-![文件上传业务流程图](./file-transfer-ui/src/assets/readme/文件上传业务.png)    
+![文件上传业务流程图](./file-transfer-ui/src/assets/readme/upload-flowchart.png)    
 &emsp;&emsp;首先用户选择需要上传的文件，然后前端将文件信息发送至后端校验，如果已经存在，则通知前端秒传，否则将已经上传好的文件块序号返回至前端，然后前端将文件分片，并将需要上传的文件块发送至后端，最后当前端上传完成时通知后端合并文件。    
 
 ## 技术实现
 &emsp;&emsp;文件上传模块的工作主要集中在Web前端，需要对文件进行分片控制并传输至后端，还需要针对后端返回的数据进行传输过程的可视化显示，而后端只需要保存分片和在最后阶段进行合并分片即可。   
 ### Web前端
 &emsp;&emsp;整个上传过程大概可以分为上传前、上传中和上传后三部分。    
-![文件上传前端](./file-transfer-ui/src/assets/readme/文件上传前端.PNG)      
+![文件上传前端](./file-transfer-ui/src/assets/readme/upload-front.png)      
 &emsp;&emsp;根据业务需求，分为文件上传器类Uploader、上传文件类UpLoadFile和文件块类Chunk，通过配置项对象的形式传递所需参数，通过事件订阅和发布的形式传递文件上传时的信息，并利用Vue框架的reactive响应式实现页面数据的实时刷新。    
 &emsp;&emsp;通过Promise封装网络请求Axios，并利用Promise.all()实现多文件块同时上传。    
 
