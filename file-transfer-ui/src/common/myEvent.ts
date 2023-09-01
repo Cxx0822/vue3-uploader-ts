@@ -1,4 +1,4 @@
-import { IEventData, IUploaderFileInfo } from '../types'
+import { IEventData, IUploaderFileInfo } from '@/types'
 import { UploadFile } from './uploadFile'
 import { Chunk } from './chunk'
 

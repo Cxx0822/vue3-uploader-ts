@@ -30,13 +30,11 @@ export const getFileTypeIcon = (fileName: string) => {
 /**
  * 格式化秒 小时:分钟:秒
  @param {number} second 传入的需要转换的并且时间单位为秒的值
- @param {number} [secondPrecision=0] 保留的秒数的精度
  @param {boolean} [roundSecond=false] 是否对秒数进行四舍五入
  @returns {string} 返回的格式化后的时间字符串
  */
 export const formatMillisecond = (
   second: number,
-  secondPrecision = 0,
   roundSecond = false
 ) => {
   const hours = Math.floor(second / 3600)
@@ -47,11 +45,20 @@ export const formatMillisecond = (
     seconds = Math.round(seconds)
   }
 
-  let secondsStr = seconds.toFixed(secondPrecision)
-  if (Number(secondsStr) <= 9) {
-    secondsStr = `0${secondsStr}`
+  return `${formatTime(hours)}:${formatTime(minutes)}:${formatTime(seconds)}`
+}
+
+/**
+ * 格式化时/分/秒 2位显示
+ * @param time 时/分/秒
+ */
+const formatTime = (time: number) => {
+  let timeStr = time.toFixed(0)
+  if (Number(timeStr) <= 9) {
+    timeStr = `0${timeStr}`
   }
-  return `${hours}:${minutes}:${secondsStr}`
+
+  return timeStr
 }
 
 /**

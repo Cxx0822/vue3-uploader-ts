@@ -92,9 +92,9 @@ const selectFileBtn = ref()
 
 // 上传器信息
 const uploaderInfo = reactive({
-  serviceIp: 'http://192.168.31.206:8081',
+  serviceIp: 'http://192.168.5.90:8080',
   uploadFileList: [] as IUploaderFileInfo[],
-  uploadFolderPath: 'D:\\temp'
+  uploadFolderPath: '/home/frank/Downloads/temp'
 })
 
 // 上传器选项

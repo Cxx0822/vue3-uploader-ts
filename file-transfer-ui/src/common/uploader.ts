@@ -1,6 +1,6 @@
 import { UploadFile } from './uploadFile'
 
-import { STATUS, IUploaderOptions, IUploaderFileInfo, IUploaderUserOptions, IChunkResult } from '@/types'
+import { STATUS, IUploaderOptions, IUploaderFileInfo, IUploaderUserOptions } from '@/types'
 import { MyEvent } from './myEvent'
 import { mergeFile } from '@/api/uploadService.ts'
 import { UploadFileQueue } from '@/common/UploadFileQueue.ts'
