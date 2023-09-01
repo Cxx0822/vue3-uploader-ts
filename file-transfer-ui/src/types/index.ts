@@ -85,8 +85,6 @@ export interface IUploaderFileInfo {
   uniqueIdentifier: string;
   // 当前状态
   state: STATUS;
-  // 是否暂停
-  isPause: boolean;
   // 信息
   message: string;
 }
@@ -148,8 +146,6 @@ export const enum STATUS {
   SUCCESS = '文件上传成功',
   // 上传出错
   ERROR = '文件上传出错',
-  // 重新上传
-  RETRY = '文件重新上传',
   // 暂停上传
   ABORT = '文件暂停上传'
 }

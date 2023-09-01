@@ -11,7 +11,9 @@
     </el-form>
 
     <label class="uploader-btn" ref="selectFileBtn">
-      <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+      <el-icon class="el-icon--upload">
+        <upload-filled/>
+      </el-icon>
     </label>
 
     <el-table
@@ -20,9 +22,9 @@
         border
         stripe
         style="width: 100%">
-      <el-table-column type="selection" width="55" />
+      <el-table-column type="selection" width="55"/>
 
-      <el-table-column label="文件名称" align="center" >
+      <el-table-column label="文件名称" align="center">
         <template #default="scope">
           <div>
             <font-awesome-icon :icon="getFileTypeIcon(scope.row.name)" size="2x"/>
@@ -68,12 +70,15 @@
 
       <el-table-column label="操作" align="center">
         <template #default="scope">
-          <el-button type="primary" @click="handlePauseOrResumeUpload(scope.$index, scope.row)">
-            {{ scope.row.isPause === true ? '继续' : '暂停' }}
+          <el-button type="primary"
+                     :disabled="scope.row.state === STATUS.ERROR"
+                     @click="handlePauseOrResumeUpload(scope.$index, scope.row)">
+            {{ scope.row.state === STATUS.PROGRESS ? '暂停' : '继续' }}
           </el-button>
           <el-button type="danger"
-                     :disabled="!scope.row.isPause"
-                     @click="handleCancelUpload(scope.$index, scope.row)" >取消</el-button>
+                     :disabled="scope.row.state === STATUS.PROGRESS"
+                     @click="handleCancelUpload(scope.$index, scope.row)">取消
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -83,8 +88,8 @@
 <script setup lang="ts">
 import { Uploader } from '@/common/uploader'
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
-import { IUploaderFileInfo, IUploaderUserOptions } from '@/types'
-import { getFileTypeIcon, formatFileSize, formatMillisecond, formatSpeed } from '@/utils'
+import { IUploaderFileInfo, IUploaderUserOptions, STATUS } from '@/types'
+import { formatFileSize, formatMillisecond, formatSpeed, getFileTypeIcon } from '@/utils'
 import { UploadFilled } from '@element-plus/icons-vue'
 
 // 选择文件按钮
@@ -155,27 +160,46 @@ const onFileFailed = (uploadFileInfo: IUploaderFileInfo) => {
  * @param uploadFileInfo 上传文件信息
  */
 const updateUploader = (uploadFileInfo: IUploaderFileInfo) => {
+  // 更新正在上传的文件状态
+  uploaderInfo.uploadFileList[getUploadFileIndex(uploadFileInfo)] = uploadFileInfo
+}
+
+/**
+ * 查找上传文件的索引
+ * @param uploadFileInfo 上传文件
+ */
+const getUploadFileIndex = (uploadFileInfo: IUploaderFileInfo) => {
   // 找到正在上传的文件在文件列表中的索引
-  const index = uploaderInfo.uploadFileList.findIndex((item) => {
+  return uploaderInfo.uploadFileList.findIndex((item) => {
     return item.uniqueIdentifier === uploadFileInfo.uniqueIdentifier
   })
-  // 更新正在上传的文件状态
-  uploaderInfo.uploadFileList[index] = uploadFileInfo
 }
 
-// 取消文件上传
+/**
+ * 取消文件上传
+ * @param index 索引
+ * @param uploaderFileInfo 上传文件
+ */
 const handleCancelUpload = (index: number, uploaderFileInfo: IUploaderFileInfo) => {
-  const uploaderInfoIndex = uploader.cancelUpload(uploaderFileInfo)
-  uploaderInfo.uploadFileList.splice(uploaderInfoIndex, 1)
+  // 当文件块处于暂停状态时 取消上传
+  if (uploaderFileInfo.state === STATUS.ABORT) {
+    uploader.cancelUpload(uploaderFileInfo)
+  }
+  uploader.deleteUploadFile(uploaderFileInfo)
+  uploaderInfo.uploadFileList.splice(getUploadFileIndex(uploaderFileInfo), 1)
 }
 
-// 处理暂停或者取消文件上传
+/**
+ * 处理暂停或者取消文件上传
+ * @param index 索引
+ * @param uploaderFileInfo 上传文件
+ */
 const handlePauseOrResumeUpload = (index: number, uploaderFileInfo: IUploaderFileInfo) => {
-  if (uploaderFileInfo.isPause) {
-    uploaderInfo.uploadFileList[index].isPause = false
+  if (uploaderFileInfo.state === STATUS.ABORT) {
+    uploaderInfo.uploadFileList[index].state = STATUS.PROGRESS
     uploader.resumeUpload(uploaderFileInfo)
   } else {
-    uploaderInfo.uploadFileList[index].isPause = true
+    uploaderInfo.uploadFileList[index].state = STATUS.ABORT
     uploader.pauseUpload(uploaderFileInfo)
   }
 }
@@ -184,6 +208,7 @@ const handlePauseOrResumeUpload = (index: number, uploaderFileInfo: IUploaderFil
 <style lang="scss" scoped>
 .uploader-btn {
   font-size: 40px;
+
   .el-icon {
     color: #000000;
   }
@@ -193,41 +218,41 @@ const handlePauseOrResumeUpload = (index: number, uploaderFileInfo: IUploaderFil
   // border-color: #000000;
 }
 
-table{
+table {
   width: 100%;
   border-collapse: collapse;
 }
 
-table caption{
+table caption {
   border: 2px solid #999;
   font-size: 24px;
   font-weight: bold;
 }
 
-th,td{
+th, td {
   border: 2px solid #999;
   font-size: 18px;
   text-align: center;
 }
 
-table thead tr{
+table thead tr {
   background-color: #008c8c;
   color: #fff;
 }
 
-table tbody tr:nth-child(odd){
+table tbody tr:nth-child(odd) {
   background-color: #eee;
 }
 
-table tbody tr:hover{
+table tbody tr:hover {
   background-color: #ccc;
 }
 
-table tbody tr td:first-child{
+table tbody tr td:first-child {
   color: #f40;
 }
 
-table tfoot tr td{
+table tfoot tr td {
   text-align: right;
   padding-right: 20px;
 }

@@ -1,6 +1,6 @@
 import { UploadFile } from './uploadFile'
 
-import { STATUS, IUploaderOptions, IUploaderFileInfo, IUploaderUserOptions } from '@/types'
+import { IUploaderFileInfo, IUploaderOptions, IUploaderUserOptions, STATUS } from '@/types'
 import { MyEvent } from './myEvent'
 import { mergeFile } from '@/api/uploadService.ts'
 import { UploadFileQueue } from '@/common/UploadFileQueue.ts'
@@ -155,6 +155,7 @@ export class Uploader extends MyEvent {
     this.hasUploadingFile = true
     // 获取当前上传的文件
     this.currentUploadFile = this.getCurrentUploadFile()
+    this.currentUploadFile.state = STATUS.PROGRESS
     this.triggerUploadFileEvent('onUploaderProgress', this.currentUploadFile, '准备上传文件')
 
     // 判断是否需要跳过上传 即服务器是否存在文件
@@ -177,21 +178,18 @@ export class Uploader extends MyEvent {
 
   /**
    * 取消文件上传
-   * @param uploadFileInfo 文件信息
+   * @param uploadFileInfo 上传文件
    */
-  cancelUpload(uploadFileInfo: IUploaderFileInfo): number {
+  cancelUpload(uploadFileInfo: IUploaderFileInfo) {
     const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
-
     this.uploadFileQueue.getAll()[index].cancelUploadFile()
     this.uploadFileQueue.getAll()[index].deleteUploadChunk()
     this.uploadFileQueue.item = this.uploadFileQueue.getAll().splice(index, 1)
-
-    return index
   }
 
   /**
    * 暂停文件上传
-   * @param uploadFileInfo 文件信息
+   * @param uploadFileInfo 上传文件
    */
   pauseUpload(uploadFileInfo: IUploaderFileInfo) {
     const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
@@ -201,12 +199,22 @@ export class Uploader extends MyEvent {
 
   /**
    * 恢复文件上传
-   * @param uploadFileInfo 文件信息
+   * @param uploadFileInfo 上传文件
    */
   resumeUpload(uploadFileInfo: IUploaderFileInfo) {
     const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
 
     this.uploadFileQueue.getAll()[index].resumeUploadFile()
+  }
+
+  /**
+   * 删除上传文件
+   * @param uploadFileInfo 上传文件
+   */
+  deleteUploadFile(uploadFileInfo: IUploaderFileInfo) {
+    const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
+
+    this.uploadFileUniqueIdentifierList.splice(index, 1)
   }
 
   /**
@@ -241,8 +249,8 @@ export class Uploader extends MyEvent {
     // 设置UploadFile的唯一标识
     const { chunkSize } = this.uploaderOptions
     this.newUploadFile.uniqueIdentifier = await generateUniqueIdentifier(file, chunkSize)
-    // 设置UploadFile初始暂停状态
-    this.newUploadFile.isPaused = !this.uploaderOptions.isAutoStart
+    // 设置UploadFile状态为等待开始
+    this.newUploadFile.state = STATUS.PENDING
   }
 
   /**
@@ -340,7 +348,6 @@ export class Uploader extends MyEvent {
       currentProgress: uploadFile.currentProgress,
       currentSpeed: uploadFile.currentSpeed,
       timeRemaining: uploadFile.timeRemaining,
-      isPause: uploadFile.isPaused,
       message: this.uploadFileMessage
     }
   }
@@ -355,8 +362,6 @@ export class Uploader extends MyEvent {
     this.uploadFileMessage = message as string
 
     switch (triggerType) {
-      case 'onUploaderProgress':
-        break
       case 'onFileSuccess':
         uploadFile.state = STATUS.SUCCESS
         uploadFile.currentProgress = 100
@@ -370,8 +375,8 @@ export class Uploader extends MyEvent {
 
     this.trigger(triggerType, this.getUploaderFileInfo(uploadFile))
 
-    // 如果上传成功 则上传下一个
-    if (triggerType === 'onFileSuccess') {
+    // 上传成功/失败 继续上传下一个
+    if (triggerType !== 'onUploaderProgress') {
       // 删除上传过的文件 即出列
       this.uploadFileQueue.deleteQueue()
 
@@ -388,7 +393,7 @@ export class Uploader extends MyEvent {
 
 const optionsDefaults: IUploaderOptions = {
   fileMaxSize: 200 * 1024 * 1024,
-  chunkSize: 1 * 1024 * 1024,
+  chunkSize: 2 * 1024 * 1024,
   // BUG TODO 如果是并发上传 会导致计算的速度有问题 原因是this.startTime的位置有问题
   simultaneousUploads: 1,
   maxChunkRetries: 3,

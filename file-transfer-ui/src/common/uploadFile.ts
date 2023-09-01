@@ -1,6 +1,6 @@
 import { Chunk } from './chunk'
 import { MyEvent } from './myEvent'
-import { IUploadFileParam, STATUS, IUploaderOptions, IUploaderFileInfo } from '@/types'
+import { IUploaderFileInfo, IUploaderOptions, IUploadFileParam, STATUS } from '@/types'
 import { ConRequest } from './RequestDecotration'
 import { deleteChunk, uploadChunk } from '@/api/uploadService.ts'
 
@@ -21,8 +21,6 @@ export class UploadFile extends MyEvent {
   state: STATUS
   // 文件块列表
   chunks: Chunk[]
-  // 是否暂停
-  isPaused: boolean
   // 当前上传速度 单位kb/s
   currentSpeed: number
   // 当前进度 单位 %
@@ -47,7 +45,6 @@ export class UploadFile extends MyEvent {
     this.uniqueIdentifier = ''
     this.state = STATUS.PENDING
     this.chunks = []
-    this.isPaused = false
     this.currentSpeed = 0
     this.currentProgress = 0
     this.timeRemaining = 0
@@ -132,7 +129,7 @@ export class UploadFile extends MyEvent {
    * 暂停文件上传
    */
   pauseUploadFile() {
-    this.isPaused = true
+    this.state = STATUS.ABORT
     this.requestInstance.pauseRequesting()
   }
 
@@ -140,7 +137,7 @@ export class UploadFile extends MyEvent {
    * 恢复文件上传
    */
   resumeUploadFile() {
-    this.isPaused = false
+    this.state = STATUS.PROGRESS
     this.requestInstance.resumeRequesting()
   }
 
@@ -190,7 +187,6 @@ export class UploadFile extends MyEvent {
       currentProgress: this.currentProgress,
       currentSpeed: this.currentSpeed,
       timeRemaining: this.timeRemaining,
-      isPause: this.isPaused,
       message: this.message
     }
 

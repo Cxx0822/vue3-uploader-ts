@@ -18,15 +18,16 @@ let filesSize = 0
 let totalChunkCount = 1 // 总共分几段下载
 
 // 分段下载需要后端配合
-const download = async() => {
-  await getFileInfo().then((response) => {
-    filesSize = response.data.data.fileLength
-    // 计算总共页数，向上取整
-    totalChunkCount = Math.ceil(filesSize / chunkSize)
+const download = async () => {
+  await getFileInfo()
+    .then((response) => {
+      filesSize = response.data.data.fileLength
+      // 计算总共页数，向上取整
+      totalChunkCount = Math.ceil(filesSize / chunkSize)
 
-    // 第一次获取数据方便获取总数
-    downloadChunk(currentChunkIndex)
-  })
+      // 第一次获取数据方便获取总数
+      downloadChunk(currentChunkIndex)
+    })
 }
 const downloadChunk = (chunkIndex) => {
   // const range = `${chunkIndex * chunkSize}-${(chunkIndex + 1) * chunkSize}`
@@ -40,15 +41,18 @@ const downloadChunk = (chunkIndex) => {
   }
 
   const headers = {
-    range: 'bytes=' + range,
+    range: `bytes=${range}`
   }
 
   axios({
     url: 'http://127.0.0.1:8080/fileDownload/chunk',
     method: 'get',
-    params: { downloadFolderPath, fileName },
-    headers: headers,
-    responseType: 'blob',
+    params: {
+      downloadFolderPath,
+      fileName
+    },
+    headers,
+    responseType: 'blob'
   })
     .then((response) => {
       if (response.status === 200 || response.status === 206) {
@@ -60,7 +64,8 @@ const downloadChunk = (chunkIndex) => {
         if (currentChunkIndex < totalChunkCount) {
           currentChunkIndex++
           // 计算下载百分比  当前下载的片数/总片数
-          percentage = Number((chunkList.length / totalChunkCount) * 100).toFixed(2)
+          percentage = Number((chunkList.length / totalChunkCount) * 100)
+            .toFixed(2)
           console.log(percentage)
           downloadChunk(currentChunkIndex)
 
@@ -89,10 +94,14 @@ const getFileInfo = () => {
     axios({
       url: 'http://127.0.0.1:8080/fileDownload/getFileInfo',
       method: 'get',
-      params: { downloadFolderPath, fileName },
-    }).then((response) => {
-      resolve(response)
+      params: {
+        downloadFolderPath,
+        fileName
+      }
     })
+      .then((response) => {
+        resolve(response)
+      })
       .catch((error) => {
         reject(error)
       })
