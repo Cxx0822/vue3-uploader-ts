@@ -71,9 +71,9 @@
       <el-table-column label="操作" align="center">
         <template #default="scope">
           <el-button type="primary"
-                     :disabled="scope.row.state === STATUS.ERROR"
+                     :disabled="checkDisablePauseOrResumeButton(scope.row.state)"
                      @click="handlePauseOrResumeUpload(scope.$index, scope.row)">
-            {{ scope.row.state === STATUS.PROGRESS ? '暂停' : '继续' }}
+            {{ getPauseOrResumeButtonName(scope.row.state) }}
           </el-button>
           <el-button type="danger"
                      :disabled="scope.row.state === STATUS.PROGRESS"
@@ -173,6 +173,56 @@ const getUploadFileIndex = (uploadFileInfo: IUploaderFileInfo) => {
   return uploaderInfo.uploadFileList.findIndex((item) => {
     return item.uniqueIdentifier === uploadFileInfo.uniqueIdentifier
   })
+}
+
+/**
+ * 判断是否可以点击暂停/继续按钮
+ * @param status 当前状态
+ */
+const checkDisablePauseOrResumeButton = (status: STATUS) => {
+  let isDisable: boolean
+  switch (status) {
+    case STATUS.PROGRESS:
+    case STATUS.ABORT:
+    case STATUS.ERROR:
+      isDisable = false
+      break
+    case STATUS.PENDING:
+    case STATUS.SUCCESS:
+      isDisable = true
+      break
+    default:
+      isDisable = false
+      break
+  }
+
+  return isDisable
+}
+
+/**
+ * 获取暂停/继续按钮的名称
+ * @param status 当前状态
+ */
+const getPauseOrResumeButtonName = (status: STATUS) => {
+  let name: string
+  switch (status) {
+    case STATUS.PENDING:
+    case STATUS.ABORT:
+    case STATUS.SUCCESS:
+      name = '继续'
+      break
+    case STATUS.PROGRESS:
+      name = '暂停'
+      break
+    case STATUS.ERROR:
+      name = '重试'
+      break
+    default:
+      name = ''
+      break
+  }
+
+  return name
 }
 
 /**

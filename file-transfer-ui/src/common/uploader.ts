@@ -17,6 +17,8 @@ export class Uploader extends MyEvent {
   uploadFileUniqueIdentifierList: string[]
   // 上传文件列表
   uploadFileQueue: UploadFileQueue<UploadFile>
+  // 上传异常文件列表(上传错误 暂停上传等)
+  errorUploadFileQueue: UploadFileQueue<UploadFile>
   // 当前上传文件
   currentUploadFile: UploadFile
   // 新选择的文件
@@ -34,6 +36,7 @@ export class Uploader extends MyEvent {
     this.uploadFileUniqueIdentifierList = []
     // 上传文件列表
     this.uploadFileQueue = new UploadFileQueue()
+    this.errorUploadFileQueue = new UploadFileQueue()
     // @ts-ignore
     this.currentUploadFile = null
     // @ts-ignore
@@ -375,10 +378,22 @@ export class Uploader extends MyEvent {
 
     this.trigger(triggerType, this.getUploaderFileInfo(uploadFile))
 
-    // 上传成功/失败 继续上传下一个
+    // 一共有2个队列
+    // 其中一个为待上传文件的队列 程序会一直上传该队列的队首元素，直到该队列为空
+    // 每次上传成功/上传错误/暂停上传时都会出列，如果上传异常还会添加至待上传队列中
+
+    // 另一个为暂停上传/上传错误的队列 该队列会暂时存放所有异常情况的文件，
+    // 等待继续上传时，出列并添加待上传文件队列
+
+    // 如果取消上传，则会查找2个队列 删除上传的文件
+
+    // 无论该次上传成功或失败 都会继续上传下一个
     if (triggerType !== 'onUploaderProgress') {
       // 删除上传过的文件 即出列
       this.uploadFileQueue.deleteQueue()
+
+      // 如果上传失败了 需要将该文件添加至上传异常队列中
+      this.errorUploadFileQueue.insertQueue(uploadFile)
 
       // 如果当前上传队列中存在文件 则继续上传
       if (this.uploadFileQueue.size() > 0) {
