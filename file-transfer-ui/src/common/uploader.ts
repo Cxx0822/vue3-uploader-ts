@@ -180,24 +180,19 @@ export class Uploader extends MyEvent {
   }
 
   /**
-   * 取消文件上传
-   * @param uploadFileInfo 上传文件
-   */
-  cancelUpload(uploadFileInfo: IUploaderFileInfo) {
-    const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
-    this.uploadFileQueue.getAll()[index].cancelUploadFile()
-    this.uploadFileQueue.getAll()[index].deleteUploadChunk()
-    this.uploadFileQueue.item = this.uploadFileQueue.getAll().splice(index, 1)
-  }
-
-  /**
    * 暂停文件上传
    * @param uploadFileInfo 上传文件
    */
   pauseUpload(uploadFileInfo: IUploaderFileInfo) {
+    // 1.找到上传文件的索引值
     const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
-
+    // 2.暂停上传
     this.uploadFileQueue.getAll()[index].pauseUploadFile()
+    // 3.添加至上传异常队列 从上传文件列中删除
+    this.errorUploadFileQueue.insertQueue(this.uploadFileQueue.getAll()[index])
+    this.uploadFileQueue.deleteQueue()
+    // 4.继续上传下一个
+    this.uploadNextFile()
   }
 
   /**
@@ -205,9 +200,44 @@ export class Uploader extends MyEvent {
    * @param uploadFileInfo 上传文件
    */
   resumeUpload(uploadFileInfo: IUploaderFileInfo) {
-    const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
+    // 1.找到上传异常文件的索引值
+    const index = this.getErrorUploadFileIndex(uploadFileInfo.uniqueIdentifier)
+    // 2.添加至待上传文件列表 从上传异常队列中删除
+    this.uploadFileQueue.insertQueue(this.errorUploadFileQueue.getAll()[index])
+    this.errorUploadFileQueue.getAll().splice(index, 1)
+    // 3.判断是否还有文件正在上传 如果没有 则恢复上传
+    if (!this.hasUploadingFile) {
+      this.uploadNextFile()
+    }
+  }
 
-    this.uploadFileQueue.getAll()[index].resumeUploadFile()
+  /**
+   * 取消文件上传
+   * @param uploadFileInfo 上传文件
+   */
+  cancelUpload(uploadFileInfo: IUploaderFileInfo) {
+    let index: number
+    switch (uploadFileInfo.state) {
+      case STATUS.PENDING:
+        // 1.如果处于等待上传 则从上传队列中删除
+        index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
+        this.uploadFileQueue.item = this.uploadFileQueue.getAll().splice(index, 1)
+        break
+      case STATUS.ABORT:
+      case STATUS.ERROR:
+        // 1.如果是暂停上传或上传出错 则从上传异常队列中删除
+        index = this.getErrorUploadFileIndex(uploadFileInfo.uniqueIdentifier)
+        this.errorUploadFileQueue.item = this.errorUploadFileQueue.getAll().splice(index, 1)
+        break
+      default:
+        break
+    }
+
+    // 2.找到文件唯一标识列表中的索引 并删除该上传文件
+    const uniqueIdentifierIndex = this.uploadFileUniqueIdentifierList.findIndex((item) => {
+      return item === uploadFileInfo.uniqueIdentifier
+    })
+    this.uploadFileUniqueIdentifierList.splice(uniqueIdentifierIndex, 1)
   }
 
   /**
@@ -215,8 +245,11 @@ export class Uploader extends MyEvent {
    * @param uploadFileInfo 上传文件
    */
   deleteUploadFile(uploadFileInfo: IUploaderFileInfo) {
-    const index = this.getUploadFileIndex(uploadFileInfo.uniqueIdentifier)
-
+    // 1.查找文件唯一标识列表中的索引 (只有上传成功了才可以删除)
+    const index = this.uploadFileUniqueIdentifierList.findIndex((item) => {
+      return item === uploadFileInfo.uniqueIdentifier
+    })
+    // 2.删除该唯一标识
     this.uploadFileUniqueIdentifierList.splice(index, 1)
   }
 
@@ -340,6 +373,16 @@ export class Uploader extends MyEvent {
   }
 
   /**
+   * 获取上传异常文件的索引值
+   * @param uniqueIdentifier 文件唯一标识
+   */
+  private getErrorUploadFileIndex(uniqueIdentifier: string): number {
+    return this.errorUploadFileQueue.getAll().findIndex((item) => {
+      return item.uniqueIdentifier === uniqueIdentifier
+    })
+  }
+
+  /**
    * 获取上传文件信息
    */
   private getUploaderFileInfo(uploadFile: UploadFile): IUploaderFileInfo {
@@ -395,13 +438,20 @@ export class Uploader extends MyEvent {
       // 如果上传失败了 需要将该文件添加至上传异常队列中
       this.errorUploadFileQueue.insertQueue(uploadFile)
 
-      // 如果当前上传队列中存在文件 则继续上传
-      if (this.uploadFileQueue.size() > 0) {
-        this.startUploadFile()
-      } else {
-        // 全部上传结束
-        this.hasUploadingFile = false
-      }
+      this.uploadNextFile()
+    }
+  }
+
+  /**
+   * 上传下一个文件
+   */
+  private uploadNextFile() {
+    // 如果当前上传队列中存在文件 则继续上传
+    if (this.uploadFileQueue.size() > 0) {
+      this.startUploadFile()
+    } else {
+      // 全部上传结束
+      this.hasUploadingFile = false
     }
   }
 }

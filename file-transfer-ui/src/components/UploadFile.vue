@@ -77,7 +77,7 @@
           </el-button>
           <el-button type="danger"
                      :disabled="scope.row.state === STATUS.PROGRESS"
-                     @click="handleCancelUpload(scope.$index, scope.row)">取消
+                     @click="handleCancelOrDeleteUpload(scope.$index, scope.row)">取消
           </el-button>
         </template>
       </el-table-column>
@@ -226,31 +226,57 @@ const getPauseOrResumeButtonName = (status: STATUS) => {
 }
 
 /**
- * 取消文件上传
+ * 取消/删除文件上传
  * @param index 索引
  * @param uploaderFileInfo 上传文件
  */
-const handleCancelUpload = (index: number, uploaderFileInfo: IUploaderFileInfo) => {
-  // 当文件块处于暂停状态时 取消上传
-  if (uploaderFileInfo.state === STATUS.ABORT) {
-    uploader.cancelUpload(uploaderFileInfo)
+const handleCancelOrDeleteUpload = (index: number, uploaderFileInfo: IUploaderFileInfo) => {
+  switch (uploaderFileInfo.state) {
+    // 待上传 暂停上传 上传错误时
+    case STATUS.PENDING:
+    case STATUS.ABORT:
+    case STATUS.ERROR:
+      // 此时取消上传
+      uploader.cancelUpload(uploaderFileInfo)
+      break
+      // 上传成功
+    case STATUS.PROGRESS:
+      // 此时删除上传文件
+      uploader.deleteUploadFile(uploaderFileInfo)
+      break
+    default:
+      break
   }
-  uploader.deleteUploadFile(uploaderFileInfo)
+
+  // 从上传列表中删除
   uploaderInfo.uploadFileList.splice(getUploadFileIndex(uploaderFileInfo), 1)
 }
 
 /**
- * 处理暂停或者取消文件上传
+ * 处理暂/取消/重试文件上传
  * @param index 索引
  * @param uploaderFileInfo 上传文件
  */
 const handlePauseOrResumeUpload = (index: number, uploaderFileInfo: IUploaderFileInfo) => {
-  if (uploaderFileInfo.state === STATUS.ABORT) {
-    uploaderInfo.uploadFileList[index].state = STATUS.PROGRESS
-    uploader.resumeUpload(uploaderFileInfo)
-  } else {
-    uploaderInfo.uploadFileList[index].state = STATUS.ABORT
-    uploader.pauseUpload(uploaderFileInfo)
+  switch (uploaderFileInfo.state) {
+    // 暂停状态
+    case STATUS.ABORT:
+      // 恢复上传
+      uploaderInfo.uploadFileList[index].state = STATUS.PROGRESS
+      uploader.resumeUpload(uploaderFileInfo)
+      break
+    // 上传状态
+    case STATUS.PROGRESS:
+      // 暂停上传
+      uploaderInfo.uploadFileList[index].state = STATUS.ABORT
+      uploader.pauseUpload(uploaderFileInfo)
+      break
+    // 错误状态
+    case STATUS.ERROR:
+      // 重试上传
+      break
+    default:
+      break
   }
 }
 </script>

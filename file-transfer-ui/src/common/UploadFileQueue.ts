@@ -49,15 +49,4 @@ export class UploadFileQueue<T> {
   size() {
     return this.item.length
   }
-
-  /**
-   * 格式化方法
-   */
-  toString() {
-    let res = ''
-    for (let i = 0; i < this.item.length; i++) {
-      res += `${this.item[i]} `
-    }
-    return res
-  }
 }
